@@ -4,6 +4,12 @@ import GitCore
 import Highlighting
 import SwiftUI
 
+/// Identifies a diff line across the whole file; `DiffLine.index` alone repeats in every hunk.
+struct LineRef: Hashable, Sendable {
+  let hunk: Int
+  let line: Int
+}
+
 struct DiffPresentation: Sendable {
   struct Key: Hashable, Sendable {
     let source: DiffSource
@@ -23,10 +29,9 @@ struct DiffPresentation: Sendable {
   }
 
   struct Line: Identifiable, Sendable {
+    let id: LineRef
     let line: DiffLine
     let text: AttributedString
-
-    var id: Int { line.index }
   }
 
   struct Section: Identifiable, Sendable {
@@ -60,7 +65,10 @@ struct DiffPresentation: Sendable {
           case .added, .context: line.newLineNumber.flatMap { newHighlights?.runs(forLine: $0 - 1) } ?? []
           case .noNewline: []
           }
-        return Line(line: line, text: attributed(line.text, runs: runs, theme: theme))
+        return Line(
+          id: LineRef(hunk: hunk.index, line: line.index), line: line,
+          text: attributed(line.text, runs: runs, theme: theme)
+        )
       })
     }
     return DiffPresentation(

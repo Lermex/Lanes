@@ -24,11 +24,6 @@ struct DiffColors {
   }
 }
 
-struct LineRef: Hashable {
-  let hunk: Int
-  let line: Int
-}
-
 /// Frames of the currently laid-out diff rows, kept outside SwiftUI state so recording them
 /// doesn't re-render the view; only read while a drag is in progress.
 @MainActor
@@ -157,6 +152,46 @@ struct DiffView: View {
     }
   }
 
+  @ViewBuilder
+  private func rows(for section: DiffPresentation.Section, contentWidth: CGFloat) -> some View {
+    let hunk = section.hunk
+    ForEach(section.lines) { entry in
+      let line = entry.line
+      let ref = entry.id
+      let selectable = supportsLineSelection && (line.kind == .added || line.kind == .removed)
+      DiffLineRow(
+        line: line, text: entry.text, colors: colors, isSelected: selectedLines.contains(ref),
+        selectableText: !supportsLineSelection
+      )
+      .frame(width: contentWidth, alignment: .leading)
+      .contentShape(Rectangle())
+      .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.contentSpace)) } action: { frames.set(ref, $0) }
+      .gesture(
+        DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.contentSpace))
+          .onChanged { value in if selectable { dragChanged(value, ref: ref, in: hunk) } }
+          .onEnded { _ in if selectable { dragEnded(ref: ref, in: hunk) } },
+        isEnabled: selectable
+      )
+      .accessibilityElement(children: selectable ? .ignore : .contain)
+      .accessibilityLabel(selectable ? lineLabel(line) : "")
+      .accessibilityAddTraits(selectable ? (selectedLines.contains(ref) ? [.isButton, .isSelected] : .isButton) : [])
+      .accessibilityAction { if selectable { handleTap(ref, in: hunk) } }
+    }
+  }
+
+  /// The header keeps the viewport's width and follows the horizontal offset, so its buttons stay visible.
+  private func header(for section: DiffPresentation.Section, contentWidth: CGFloat) -> some View {
+    let hunk = section.hunk
+    return HunkHeaderRow(
+      hunk: hunk, action: hunkAction, colors: colors, selectedCount: selectedIndices(in: hunk).count,
+      performLines: { hunkAction?.performLines?(hunk, selectedIndices(in: hunk)) },
+      clearSelection: { selectedLines = selectedLines.filter { $0.hunk != hunk.index } }
+    )
+    .frame(width: max(scroll.viewportWidth, 200))
+    .offset(x: scroll.offsetX)
+    .frame(width: contentWidth, alignment: .leading)
+  }
+
   private var content: some View {
     Group {
       if file.isBinary {
@@ -172,45 +207,16 @@ struct DiffView: View {
         ScrollView([.vertical, .horizontal]) {
           LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             ForEach(presentation.sections) { section in
-              let hunk = section.hunk
               Section {
-                ForEach(section.lines) { entry in
-                  let line = entry.line
-                  let ref = LineRef(hunk: hunk.index, line: line.index)
-                  let selectable = supportsLineSelection && (line.kind == .added || line.kind == .removed)
-                  DiffLineRow(
-                    line: line, text: entry.text, colors: colors, isSelected: selectedLines.contains(ref),
-                    selectableText: !supportsLineSelection
-                  )
-                  .frame(width: contentWidth, alignment: .leading)
-                  .contentShape(Rectangle())
-                  .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.contentSpace)) } action: { frames.set(ref, $0) }
-                  .gesture(
-                    DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.contentSpace))
-                      .onChanged { value in if selectable { dragChanged(value, ref: ref, in: hunk) } }
-                      .onEnded { _ in if selectable { dragEnded(ref: ref, in: hunk) } },
-                    isEnabled: selectable
-                  )
-                  .accessibilityElement(children: selectable ? .ignore : .contain)
-                  .accessibilityLabel(selectable ? lineLabel(line) : "")
-                  .accessibilityAddTraits(selectable ? (selectedLines.contains(ref) ? [.isButton, .isSelected] : .isButton) : [])
-                  .accessibilityAction { if selectable { handleTap(ref, in: hunk) } }
-                }
+                rows(for: section, contentWidth: contentWidth)
               } header: {
-                // the header keeps the viewport's width and follows the horizontal offset, so its buttons stay visible
-                HunkHeaderRow(
-                  hunk: hunk, action: hunkAction, colors: colors, selectedCount: selectedIndices(in: hunk).count,
-                  performLines: { hunkAction?.performLines?(hunk, selectedIndices(in: hunk)) },
-                  clearSelection: { selectedLines = selectedLines.filter { $0.hunk != hunk.index } }
-                )
-                .frame(width: max(scroll.viewportWidth, 200))
-                .offset(x: scroll.offsetX)
-                .frame(width: contentWidth, alignment: .leading)
+                header(for: section, contentWidth: contentWidth)
               }
             }
           }
           .coordinateSpace(.named(Self.contentSpace))
         }
+        .id(source)
         .defaultScrollAnchor(.topLeading)
         .onScrollGeometryChange(for: ScrollState.self) { geometry in
           ScrollState(
