@@ -1,5 +1,6 @@
 import AppKit
 import QuartzCore
+import SwiftUI
 
 /// Scripted interactions for measuring rendering cost without a user at the keyboard. Enabled by
 /// `LANES_DEBUG_SCRIPT`, a comma-separated list of steps: `changes`, `history`, `sidebar-scroll`,
@@ -18,11 +19,27 @@ enum DebugDriver {
         case "history-scroll": await scroll(tableWithRowsClosestTo: model.commits.count, label: "history")
         case "wait": try? await Task.sleep(for: .seconds(2))
         case "snapshot": WindowSnapshot.capture()
+        case "sidebar-window": showSidebarWindow(model: model)
+        case "snapshot-sidebar": WindowSnapshot.capture(window: sidebarWindow)
         default: debugLog("debug script: unknown step \(step)")
         }
       }
       debugLog("debug script: done")
     }
+  }
+
+  /// Hosts the sidebar in a plain window, whose contents the snapshot can capture (the real
+  /// sidebar's glass renders blank), and makes it key so the next `snapshot` step picks it.
+  private static var sidebarWindow: NSWindow?
+
+  private static func showSidebarWindow(model: RepositoryModel) {
+    let window = NSWindow(
+      contentRect: NSRect(x: 200, y: 200, width: 300, height: 720), styleMask: [.titled], backing: .buffered, defer: false
+    )
+    window.title = "Sidebar preview"
+    window.contentView = NSHostingView(rootView: SidebarView(model: model))
+    window.makeKeyAndOrderFront(nil)
+    sidebarWindow = window
   }
 
   private static func measure(_ label: String, _ change: () -> Void) async {

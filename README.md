@@ -99,18 +99,21 @@ filters apply, and worktrees just work.
 * History columns resize by dragging the dividers in the header; widths persist. The graph column
   defaults to fitting every lane; double-click its divider or use View › Fit Graph Column (⇧⌘G)
   to return to that.
-* The sidebar's "Sort by" picker orders every branch section by name, by whether the branch has an
-  open pull request, by fork date (the date of the branch's merge base with the trunk), or by last
-  commit. Date orders show a relative date on each row. Fork dates come from one `git merge-base`
-  per branch tip, computed in the background after each refresh and remembered per tip.
+* The sidebar header shows how many branches are in the graph and keeps the controls behind two
+  menus, like Mail's mailbox header: the sort/filter menu (≡) holds Sort by, Show all branches and
+  Show tags; the more menu (…) holds Show in graph (None / Local branches / Branches with pull
+  requests) and the Remotes submenu.
+* Sort by orders every branch section by name, by whether the branch has an open pull request, by
+  fork date (the date of the branch's merge base with the trunk), or by last commit. Date orders
+  show a relative date on each row. Fork dates come from one `git merge-base` per branch tip,
+  computed in the background after each refresh and remembered per tip.
 * Right-click a branch in the sidebar for Switch (a remote branch gets a local tracking branch),
   Push (to the upstream's remote, or a chosen remote when the branch has no upstream yet, which
   then sets it), Rename, Delete, and Use as Trunk. Deleting asks first; if git refuses because the
   branch is not fully merged you are asked again before it is forced. Deleting a remote branch
   removes it on that remote.
-* The Remotes menu in the sidebar hides a whole remote: its branches leave the sidebar, the graph
-  revisions, and the ref chips. Hidden remotes are listed at the bottom of the sidebar with a
-  Show link. This is stored with the branch filter.
+* Unchecking a remote in the Remotes submenu hides it whole: its branches leave the sidebar, the
+  graph revisions, and the ref chips. This is stored with the branch filter.
 * Trunk view (toolbar toggle, View › Trunk View, ⌥⌘T) draws only the trunk as a lane and collapses
   every other branch into a capsule row placed directly above the trunk commit it forked from, with
   its refs, PR badge, commit count and how far behind the trunk it is. The chevron (or a
@@ -119,9 +122,9 @@ filters apply, and worktrees just work.
   merge commit. The trunk defaults to `origin/master` (or `origin/main`), can be changed with
   "Use as Trunk" in a branch's context menu, and never follows HEAD; checking out a branch expands
   its capsule instead. Trunk choice and expansion state are stored per repository.
-* The sidebar's Select row (None / Local / With PRs) rewrites the branch selection; With PRs turns
-  on every branch with an open pull request (View › Show Branches With Pull Requests, ⇧⌘P), adding
-  to the current selection unless show-all was on.
+* Show in graph rewrites the branch selection; Branches with pull requests turns on every branch
+  with an open pull request (View › Show Branches With Pull Requests, ⇧⌘P), adding to the current
+  selection unless show-all was on.
 * Fetch (toolbar, or Repository › Fetch, ⇧⌘F) runs `git fetch --all --prune` and refreshes.
 * Open pull requests come from `gh pr list` (GitHub CLI, Homebrew or /usr/local) and show as a
   `#123` badge next to the branch in the sidebar and on graph rows; click to open. Refreshed at

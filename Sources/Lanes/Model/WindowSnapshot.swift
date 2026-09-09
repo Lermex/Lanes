@@ -6,9 +6,9 @@ enum WindowSnapshot {
   }
 
   @MainActor
-  static func capture() {
+  static func capture(window chosen: NSWindow? = nil) {
     guard let directory,
-      let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible),
+      let window = chosen ?? NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible),
       let content = window.contentView
     else { return }
     let view = content.superview ?? content

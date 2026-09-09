@@ -12,74 +12,26 @@ struct SidebarView: View {
   @State private var forceDeleting: Ref?
 
   var body: some View {
-    List {
-      Section {
-        Toggle("Show all branches", isOn: Binding(get: { model.filter.showAll }, set: { model.setShowAll($0) }))
-        Toggle("Show tags", isOn: $model.filter.includeTags)
-        if !model.allRemoteNames.isEmpty {
-          Menu {
-            ForEach(model.allRemoteNames, id: \.self) { remote in
-              Toggle(remote, isOn: Binding(
-                get: { !model.filter.hiddenRemotes.contains(remote) },
-                set: { model.setRemoteHidden(remote, !$0) }
-              ))
-            }
-          } label: {
-            Label(remotesLabel, systemImage: "network")
-          }
-          .accessibilityLabel("Remotes")
-        }
-        HStack(spacing: 10) {
-          Text("Select").foregroundStyle(.secondary)
-          Button("None") { model.selectNoBranches() }
-          Button("Local") { model.selectLocalBranches() }
-          Button("With PRs") { model.selectBranchesWithPullRequests() }
-            .disabled(model.branchesWithPullRequests.isEmpty)
-            .help("Turn on every branch that has an open pull request")
-        }
-        .controlSize(.small)
-        .buttonStyle(.link)
-        HStack(spacing: 6) {
-          Text("Sort by").foregroundStyle(.secondary)
-          Picker("Sort branches by", selection: $sort) {
-            ForEach(BranchSort.allCases) { Text($0.title).tag($0) }
-          }
-          .labelsHidden()
-          .pickerStyle(.menu)
-          .fixedSize()
-        }
-        .controlSize(.small)
-      }
-      Section("Branches") {
-        ForEach(filtered(model.sortedLocalBranches(by: sort))) { ref in
-          BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
-        }
-      }
-      ForEach(model.remoteNames, id: \.self) { remote in
-        Section(isExpanded: expansion(for: remote)) {
-          ForEach(filtered(model.sortedRemoteBranches(remote, by: sort))) { ref in
+    VStack(spacing: 0) {
+      SidebarHeader(model: model, sort: $sort)
+      List {
+        Section("Branches") {
+          ForEach(filtered(model.sortedLocalBranches(by: sort))) { ref in
             BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
           }
-        } header: {
-          Text(remote)
         }
-      }
-      if !model.hiddenRemoteNames.isEmpty {
-        Section("Hidden remotes") {
-          ForEach(model.hiddenRemoteNames, id: \.self) { remote in
-            HStack {
-              Image(systemName: "eye.slash").foregroundStyle(.secondary)
-              Text(remote).foregroundStyle(.secondary)
-              Spacer()
-              Button("Show") { model.setRemoteHidden(remote, false) }
-                .buttonStyle(.link)
-                .controlSize(.small)
+        ForEach(model.remoteNames, id: \.self) { remote in
+          Section(isExpanded: expansion(for: remote)) {
+            ForEach(filtered(model.sortedRemoteBranches(remote, by: sort))) { ref in
+              BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
             }
+          } header: {
+            Text(remote)
           }
         }
       }
+      .listStyle(.sidebar)
     }
-    .listStyle(.sidebar)
     .searchable(text: $query, placement: .sidebar, prompt: "Filter branches")
     .alert("Rename Branch", isPresented: presenting($renaming)) {
       TextField("New name", text: $newBranchName)
@@ -132,11 +84,6 @@ struct SidebarView: View {
 
   private func presenting(_ value: Binding<Ref?>) -> Binding<Bool> {
     Binding(get: { value.wrappedValue != nil }, set: { if !$0 { value.wrappedValue = nil } })
-  }
-
-  private var remotesLabel: String {
-    let hidden = model.hiddenRemoteNames.count
-    return hidden == 0 ? "Remotes" : "Remotes (\(hidden) hidden)"
   }
 
   private func filtered(_ refs: [Ref]) -> [Ref] {
