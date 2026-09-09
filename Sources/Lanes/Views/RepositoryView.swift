@@ -29,13 +29,16 @@ struct RepositoryView: View {
     .navigationTitle(model.info.displayName)
     .navigationSubtitle(subtitle)
     .toolbar {
-      ToolbarItem(placement: .principal) {
+      // trailing items keep their place when the sidebar collapses; a principal item is centred on
+      // the detail column and would jump by half the sidebar width
+      ToolbarItem(placement: .primaryAction) {
         Picker("View", selection: $model.mode) {
-          Text("History").tag(ViewMode.history)
-          Text(changesLabel).tag(ViewMode.changes)
+          Text("History  ⌘1").tag(ViewMode.history)
+          Text("\(changesLabel)  ⌘2").tag(ViewMode.changes)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .help("Switch between the history (⌘1) and the staging area (⌘2)")
       }
       ToolbarItem(placement: .primaryAction) {
         Toggle(isOn: $model.trunkView.enabled) {
