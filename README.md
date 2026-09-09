@@ -90,6 +90,10 @@ filters apply, and worktrees just work.
 * History columns resize by dragging the dividers in the header; widths persist. The graph column
   defaults to fitting every lane; double-click its divider or use View › Fit Graph Column (⇧⌘G)
   to return to that.
+* The sidebar's "Sort by" picker orders every branch section by name, by whether the branch has an
+  open pull request, by fork date (the date of the branch's merge base with the trunk), or by last
+  commit. Date orders show a relative date on each row. Fork dates come from one `git merge-base`
+  per branch tip, computed in the background after each refresh and remembered per tip.
 * The Remotes menu in the sidebar hides a whole remote: its branches leave the sidebar, the graph
   revisions, and the ref chips. Hidden remotes are listed at the bottom of the sidebar with a
   Show link. This is stored with the branch filter.

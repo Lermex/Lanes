@@ -40,6 +40,8 @@ final class RepositoryModel {
   private(set) var isBusy = false
   private(set) var historyTruncated = false
   private(set) var pullRequests: [String: PullRequest] = [:]
+  /// Date of each branch's fork point from the trunk, keyed by ref full name.
+  private(set) var forkDates: [String: Date] = [:]
   private(set) var trunkLayout: TrunkLayout?
   var errorMessage: String?
   var mode: ViewMode = .history
@@ -57,6 +59,7 @@ final class RepositoryModel {
       TrunkViewStore.save(trunkView, for: info)
       if trunkView.trunk != oldValue.trunk {
         scheduleHistoryReload()
+        scheduleForkDates()
       } else {
         recomputeTrunkLayout()
       }
@@ -78,6 +81,9 @@ final class RepositoryModel {
   private var watcher: RepositoryWatcher?
   private var pendingRefresh: Task<Void, Never>?
   private var pendingHistoryReload: Task<Void, Never>?
+  @ObservationIgnored private var forkDatesTask: Task<Void, Never>?
+  /// merge-base results keyed by "<trunk sha> <tip sha>", so a refresh only asks git about new tips
+  @ObservationIgnored private var forkPointCache: [String: String] = [:]
   private var pendingPresentations: Set<DiffPresentation.Key> = []
   private var lastPullRequestFetch: Date?
   private var lastHeadBranch: String?
@@ -209,6 +215,63 @@ final class RepositoryModel {
     pullRequest(forBranchName: ref.shortName)
   }
 
+  func sortedBranches(_ refs: [Ref], by sort: BranchSort) -> [Ref] {
+    sort.sorted(refs, pullRequest: pullRequest(for:), forkDate: { forkDates[$0.fullName] })
+  }
+
+  // MARK: Fork dates
+
+  private func scheduleForkDates() {
+    forkDatesTask?.cancel()
+    guard let trunk = trunkRef else {
+      forkDates = [:]
+      return
+    }
+    let trunkSha = trunk.target
+    let branches = refs.filter { $0.kind != .tag }
+    let cache = forkPointCache
+    let git = git
+    forkDatesTask = Task { [weak self] in
+      var forkPoints: [String: String] = [:]
+      var pending: [Ref] = []
+      for ref in branches {
+        if let known = cache["\(trunkSha) \(ref.target)"] { forkPoints[ref.fullName] = known } else { pending.append(ref) }
+      }
+      let computed = await Self.mergeBases(of: pending, with: trunkSha, git: git)
+      var updatedCache = cache
+      for ref in pending {
+        guard let sha = computed[ref.fullName] else { continue }
+        forkPoints[ref.fullName] = sha
+        updatedCache["\(trunkSha) \(ref.target)"] = sha
+      }
+      let dates = (try? await git.commitDates(Array(Set(forkPoints.values)))) ?? [:]
+      guard !Task.isCancelled, let self else { return }
+      forkPointCache = updatedCache
+      forkDates = forkPoints.compactMapValues { dates[$0] }
+    }
+  }
+
+  nonisolated private static func mergeBases(of refs: [Ref], with trunkSha: String, git: Git) async -> [String: String] {
+    await withTaskGroup(of: (String, String?).self) { group in
+      var results: [String: String] = [:]
+      var next = 0
+      for _ in 0..<min(8, refs.count) {
+        let ref = refs[next]
+        next += 1
+        group.addTask { (ref.fullName, try? await git.mergeBase(trunkSha, ref.target)) }
+      }
+      for await (name, sha) in group {
+        if let sha { results[name] = sha }
+        if next < refs.count {
+          let ref = refs[next]
+          next += 1
+          group.addTask { (ref.fullName, try? await git.mergeBase(trunkSha, ref.target)) }
+        }
+      }
+      return results
+    }
+  }
+
   func pullRequest(forBranchName name: String) -> PullRequest? {
     if let direct = pullRequests[name] { return direct }
     return allRemoteNames.lazy.compactMap { remote -> PullRequest? in
@@ -282,6 +345,7 @@ final class RepositoryModel {
       untrackedDiffs = [:]
       pruneStalePresentations()
       expandCheckedOutBranchIfChanged()
+      scheduleForkDates()
       try await reloadHistory()
       reconcileSelection()
       errorMessage = nil

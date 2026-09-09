@@ -13,6 +13,8 @@ public struct Ref: Sendable, Hashable, Identifiable {
   public let target: String
   public let isHead: Bool
   public let upstream: String?
+  /// Committer date of the commit the ref points at.
+  public let committerDate: Date?
 
   public var id: String { fullName }
 
@@ -21,13 +23,23 @@ public struct Ref: Sendable, Hashable, Identifiable {
     return shortName.split(separator: "/", maxSplits: 1).first.map(String.init)
   }
 
-  public init(fullName: String, shortName: String, kind: RefKind, target: String, isHead: Bool, upstream: String?) {
+  /// The short name without the remote prefix, so `origin/feature` and `feature` compare alike.
+  public var branchName: String {
+    guard let remote, shortName.hasPrefix(remote + "/") else { return shortName }
+    return String(shortName.dropFirst(remote.count + 1))
+  }
+
+  public init(
+    fullName: String, shortName: String, kind: RefKind, target: String, isHead: Bool, upstream: String?,
+    committerDate: Date? = nil
+  ) {
     self.fullName = fullName
     self.shortName = shortName
     self.kind = kind
     self.target = target
     self.isHead = isHead
     self.upstream = upstream
+    self.committerDate = committerDate
   }
 }
 
@@ -45,12 +57,13 @@ public struct HeadState: Sendable, Equatable {
 }
 
 public enum RefParser {
-  public static let format = "%(refname)%00%(objectname)%00%(*objectname)%00%(HEAD)%00%(upstream:short)"
+  public static let format =
+    "%(refname)%00%(objectname)%00%(*objectname)%00%(HEAD)%00%(upstream:short)%00%(committerdate:unix)%00%(*committerdate:unix)"
 
   public static func parse(_ output: String) -> [Ref] {
     output.split(separator: "\n").compactMap { line in
       let fields = line.split(separator: "\u{0}", omittingEmptySubsequences: false).map(String.init)
-      guard fields.count == 5 else { return nil }
+      guard fields.count == 7 else { return nil }
       let fullName = fields[0]
       let kind: RefKind
       let shortName: String
@@ -68,13 +81,15 @@ public enum RefParser {
       }
       if kind == .remoteBranch && shortName.hasSuffix("/HEAD") { return nil }
       let peeled = fields[2]
+      let dateField = peeled.isEmpty ? fields[5] : fields[6]
       return Ref(
         fullName: fullName,
         shortName: shortName,
         kind: kind,
         target: peeled.isEmpty ? fields[1] : peeled,
         isHead: fields[3] == "*",
-        upstream: fields[4].isEmpty ? nil : fields[4]
+        upstream: fields[4].isEmpty ? nil : fields[4],
+        committerDate: TimeInterval(dateField).map { Date(timeIntervalSince1970: $0) }
       )
     }
   }

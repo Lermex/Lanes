@@ -5,6 +5,7 @@ struct SidebarView: View {
   @Bindable var model: RepositoryModel
   @State private var query = ""
   @State private var collapsedRemotes: Set<String> = []
+  @AppStorage("branchSort") private var sort = BranchSort.name
 
   var body: some View {
     List {
@@ -34,16 +35,26 @@ struct SidebarView: View {
         }
         .controlSize(.small)
         .buttonStyle(.link)
+        HStack(spacing: 6) {
+          Text("Sort by").foregroundStyle(.secondary)
+          Picker("Sort branches by", selection: $sort) {
+            ForEach(BranchSort.allCases) { Text($0.title).tag($0) }
+          }
+          .labelsHidden()
+          .pickerStyle(.menu)
+          .fixedSize()
+        }
+        .controlSize(.small)
       }
       Section("Branches") {
-        ForEach(filtered(model.localBranches)) { ref in
-          BranchRow(model: model, ref: ref)
+        ForEach(branches(model.localBranches)) { ref in
+          BranchRow(model: model, ref: ref, sort: sort)
         }
       }
       ForEach(model.remoteNames, id: \.self) { remote in
         Section(isExpanded: expansion(for: remote)) {
-          ForEach(filtered(model.remoteBranches(remote))) { ref in
-            BranchRow(model: model, ref: ref)
+          ForEach(branches(model.remoteBranches(remote))) { ref in
+            BranchRow(model: model, ref: ref, sort: sort)
           }
         } header: {
           Text(remote)
@@ -73,10 +84,10 @@ struct SidebarView: View {
     return hidden == 0 ? "Remotes" : "Remotes (\(hidden) hidden)"
   }
 
-  private func filtered(_ refs: [Ref]) -> [Ref] {
+  private func branches(_ refs: [Ref]) -> [Ref] {
     let needle = query.trimmingCharacters(in: .whitespaces)
-    guard !needle.isEmpty else { return refs }
-    return refs.filter { $0.shortName.localizedCaseInsensitiveContains(needle) }
+    let matching = needle.isEmpty ? refs : refs.filter { $0.shortName.localizedCaseInsensitiveContains(needle) }
+    return model.sortedBranches(matching, by: sort)
   }
 
   private func expansion(for remote: String) -> Binding<Bool> {
@@ -92,6 +103,7 @@ struct SidebarView: View {
 private struct BranchRow: View {
   let model: RepositoryModel
   let ref: Ref
+  let sort: BranchSort
 
   var body: some View {
     HStack(spacing: 6) {
@@ -101,7 +113,7 @@ private struct BranchRow: View {
         .accessibilityLabel(ref.shortName)
         .disabled(ref.isHead)
         .help(ref.isHead ? "The checked-out branch is always shown" : "Show in the graph")
-      Text(displayName)
+      Text(ref.branchName)
         .lineLimit(1)
         .truncationMode(.middle)
         .fontWeight(ref.isHead ? .semibold : .regular)
@@ -109,6 +121,13 @@ private struct BranchRow: View {
         PullRequestBadge(pullRequest: pullRequest)
       }
       Spacer(minLength: 0)
+      if let date = sortDate {
+        Text(date, format: .relative(presentation: .numeric, unitsStyle: .narrow))
+          .font(.caption)
+          .monospacedDigit()
+          .foregroundStyle(.secondary)
+          .help(sort == .forkDate ? "Forked from the trunk" : "Last commit")
+      }
       if model.trunkRef?.fullName == ref.fullName {
         Image(systemName: "arrow.triangle.merge").foregroundStyle(.secondary).imageScale(.small).help("Trunk")
       }
@@ -124,9 +143,12 @@ private struct BranchRow: View {
     }
   }
 
-  private var displayName: String {
-    guard let remote = ref.remote, ref.shortName.hasPrefix(remote + "/") else { return ref.shortName }
-    return String(ref.shortName.dropFirst(remote.count + 1))
+  private var sortDate: Date? {
+    switch sort {
+    case .forkDate: model.forkDates[ref.fullName]
+    case .lastCommit: ref.committerDate
+    case .name, .pullRequest: nil
+    }
   }
 
   private var shown: Binding<Bool> {

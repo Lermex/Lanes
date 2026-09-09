@@ -121,6 +121,30 @@ import Testing
     #expect(status.unstaged.map(\.path) == ["plain-dir/loose.txt"])
   }
 
+  @Test func mergeBaseAndCommitDates() async throws {
+    let repo = try await makeRepo()
+    let base = try await repo.git.text(["rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines)
+    try await repo.git.run(["checkout", "-qb", "feature"])
+    try write(repo.url, "feature.txt", "feature\n")
+    try await repo.git.run(["add", "-A"])
+    try await repo.git.run(["commit", "-qm", "feature work"])
+    try await repo.git.run(["checkout", "-q", "master"])
+    try write(repo.url, "master.txt", "master\n")
+    try await repo.git.run(["add", "-A"])
+    try await repo.git.run(["commit", "-qm", "master work"])
+    let featureTip = try await repo.git.text(["rev-parse", "feature"]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+    #expect(try await repo.git.mergeBase("master", "feature") == base)
+    let dates = try await repo.git.commitDates([base, featureTip])
+    #expect(Set(dates.keys) == [base, featureTip])
+    let refs = try await repo.git.refs()
+    #expect(refs.first { $0.shortName == "feature" }?.committerDate == dates[featureTip])
+
+    try await repo.git.run(["checkout", "-q", "--orphan", "island"])
+    try await repo.git.run(["commit", "-qm", "unrelated", "--allow-empty"])
+    #expect(try await repo.git.mergeBase("master", "island") == nil)
+  }
+
   @Test func refsHeadAndDiscovery() async throws {
     let repo = try await makeRepo()
     try await repo.git.run(["branch", "feature"])

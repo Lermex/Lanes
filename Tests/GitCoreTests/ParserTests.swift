@@ -20,11 +20,11 @@ import Testing
 @Suite struct RefParserTests {
   @Test func classifiesRefsAndPeelsTags() {
     let output = [
-      "refs/heads/master\u{0}1111\u{0}\u{0}*\u{0}origin/master",
-      "refs/heads/feature\u{0}2222\u{0}\u{0} \u{0}",
-      "refs/remotes/origin/HEAD\u{0}1111\u{0}\u{0} \u{0}",
-      "refs/remotes/origin/master\u{0}1111\u{0}\u{0} \u{0}",
-      "refs/tags/v1\u{0}tagobj\u{0}3333\u{0} \u{0}",
+      "refs/heads/master\u{0}1111\u{0}\u{0}*\u{0}origin/master\u{0}1700000000\u{0}",
+      "refs/heads/feature\u{0}2222\u{0}\u{0} \u{0}\u{0}1700000100\u{0}",
+      "refs/remotes/origin/HEAD\u{0}1111\u{0}\u{0} \u{0}\u{0}1700000000\u{0}",
+      "refs/remotes/origin/master\u{0}1111\u{0}\u{0} \u{0}\u{0}1700000000\u{0}",
+      "refs/tags/v1\u{0}tagobj\u{0}3333\u{0} \u{0}\u{0}1700000900\u{0}1700000200",
     ].joined(separator: "\n") + "\n"
     let refs = RefParser.parse(output)
     #expect(refs.map(\.shortName) == ["master", "feature", "origin/master", "v1"])
@@ -32,7 +32,10 @@ import Testing
     #expect(refs[0].upstream == "origin/master")
     #expect(refs[2].kind == .remoteBranch)
     #expect(refs[2].remote == "origin")
+    #expect(refs[2].branchName == "master")
     #expect(refs[3].target == "3333")
+    #expect(refs[1].committerDate == Date(timeIntervalSince1970: 1_700_000_100))
+    #expect(refs[3].committerDate == Date(timeIntervalSince1970: 1_700_000_200), "annotated tags use the peeled commit's date")
   }
 }
 
