@@ -10,10 +10,9 @@ Everything else (fetch, push, rebase, …) stays in the terminal.
 
 ## Installing
 
-Every push to `master` publishes a build to [GitHub Releases](https://github.com/Lermex/Lanes/releases)
-(`.github/workflows/release.yml`; the version is `0.1.<run number>`, `[skip release]` in the commit
-message skips it). Unzip, move `Lanes.app` to Applications, and clear the quarantine flag once,
-because the build is only ad-hoc signed:
+Builds are published to [GitHub Releases](https://github.com/Lermex/Lanes/releases) (see
+[Releases](#releases) below). Unzip, move `Lanes.app` to Applications, and clear the quarantine
+flag once, because the build is only ad-hoc signed:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Lanes.app
@@ -32,6 +31,16 @@ make icon                # re-renders Resources/AppIcon/icon.svg into the .icns
 ```
 
 `Package.swift` is a plain SwiftPM manifest, so the package also opens directly in Xcode.
+
+## Releases
+
+Releases are cut by hand with the Release workflow (Actions › Release › Run workflow, or
+`gh workflow run release.yml -f bump=patch`). It bumps the version from the latest `v*` tag (patch
+by default; pick `minor` or `major`, or pass an explicit `version`), writes release notes listing
+every commit since that tag grouped as Added / Changed / Fixed / Removed with a compare link
+(`Scripts/release.swift`), runs the tests, builds the bundle stamped with that version, and publishes
+the zip under the new tag. `dry_run=true` does everything except publish and keeps the zip and notes
+as a workflow artifact. Pushes to `master` only run the tests (`.github/workflows/ci.yml`).
 
 ## App icon
 
