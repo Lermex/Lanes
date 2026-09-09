@@ -11,8 +11,8 @@ Everything else (fetch, push, rebase, …) stays in the terminal.
 ## Installing
 
 Builds are published to [GitHub Releases](https://github.com/Lermex/Lanes/releases) (see
-[Releases](#releases) below). Unzip, move `Lanes.app` to Applications, and clear the quarantine
-flag once, because the build is only ad-hoc signed:
+[Releases](#releases) below). Unzip and move `Lanes.app` to Applications. Releases that were only
+ad-hoc signed (see Signing and notarization) need the quarantine flag cleared once:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Lanes.app
@@ -41,6 +41,26 @@ every commit since that tag grouped as Added / Changed / Fixed / Removed with a 
 (`Scripts/release.swift`), runs the tests, builds the bundle stamped with that version, and publishes
 the zip under the new tag. `dry_run=true` does everything except publish and keeps the zip and notes
 as a workflow artifact. Pushes to `master` only run the tests (`.github/workflows/ci.yml`).
+
+### Signing and notarization
+
+With four repository secrets in place the workflow signs the bundle with a Developer ID certificate
+under the hardened runtime, notarizes it with Apple and staples the ticket, so downloads open
+without the Gatekeeper dance. Without them it falls back to an ad-hoc signature.
+
+1. Certificate: in Xcode › Settings › Accounts › Manage Certificates, add a **Developer ID
+   Application** certificate. In Keychain Access, export it (with its private key) as a `.p12`
+   with a password. Then
+   `gh secret set MACOS_CERTIFICATE_P12 < <(base64 -i Certificates.p12)` and
+   `gh secret set MACOS_CERTIFICATE_PASSWORD`.
+2. Notarization key: in App Store Connect › Users and Access › Integrations › App Store Connect
+   API, generate a team key with the Developer role and download its `.p8`. Then
+   `gh secret set NOTARY_KEY_P8 < <(base64 -i AuthKey_XXXX.p8)`, `gh secret set NOTARY_KEY_ID` (the
+   key's ID) and `gh secret set NOTARY_ISSUER_ID` (the issuer ID shown above the key list).
+
+The identity name is read from the certificate, so nothing else needs configuring. Locally,
+`make app SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"` signs the same way
+(notarization is CI-only).
 
 ## App icon
 

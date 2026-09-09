@@ -4,7 +4,7 @@ import Foundation
 //   prints the version that follows the last one
 // release.swift notes <last tag> <new version>
 //   prints Markdown release notes: every commit since the last tag grouped by what it did, a compare
-//   link, then the install instructions from .github/release-notes.md
+//   link, then the install instructions from $RELEASE_FOOTER (default .github/release-notes.md)
 
 func git(_ arguments: [String]) -> String {
   let process = Process()
@@ -86,7 +86,8 @@ func notes(since lastTag: String, version: String) -> String {
     lines.append("**Full changelog:** [\(lastTag)...v\(version)](\(repository)/compare/\(lastTag)...v\(version))")
     lines.append("")
   }
-  if let install = try? String(contentsOfFile: ".github/release-notes.md", encoding: .utf8) {
+  let footer = ProcessInfo.processInfo.environment["RELEASE_FOOTER"] ?? ".github/release-notes.md"
+  if let install = try? String(contentsOfFile: footer, encoding: .utf8) {
     lines.append("---")
     lines.append("")
     lines.append(install.trimmingCharacters(in: .whitespacesAndNewlines))

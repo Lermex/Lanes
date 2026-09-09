@@ -2,6 +2,13 @@ APP      := Lanes
 CONFIG   ?= release
 VERSION  ?= 0.0.0
 BUILD_NUMBER ?= 0
+# "-" is an ad-hoc signature; pass a "Developer ID Application: …" identity for a distributable build
+SIGN_IDENTITY ?= -
+ifeq ($(SIGN_IDENTITY),-)
+SIGN_FLAGS :=
+else
+SIGN_FLAGS := --options runtime --timestamp
+endif
 BUILD    := .build/$(CONFIG)
 BUNDLE   := Build/$(APP).app
 CONTENTS := $(BUNDLE)/Contents
@@ -21,7 +28,7 @@ app: build
 	plutil -replace CFBundleVersion -string "$(BUILD_NUMBER)" $(CONTENTS)/Info.plist
 	cp -R Resources/Themes $(CONTENTS)/Resources/Themes
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/
-	codesign --force --sign - $(BUNDLE)
+	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) $(BUNDLE)
 	@echo "built $(BUNDLE)"
 
 # make run REPO=/path/to/repo
