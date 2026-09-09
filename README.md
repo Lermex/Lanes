@@ -103,6 +103,11 @@ filters apply, and worktrees just work.
   open pull request, by fork date (the date of the branch's merge base with the trunk), or by last
   commit. Date orders show a relative date on each row. Fork dates come from one `git merge-base`
   per branch tip, computed in the background after each refresh and remembered per tip.
+* Right-click a branch in the sidebar for Switch (a remote branch gets a local tracking branch),
+  Push (to the upstream's remote, or a chosen remote when the branch has no upstream yet, which
+  then sets it), Rename, Delete, and Use as Trunk. Deleting asks first; if git refuses because the
+  branch is not fully merged you are asked again before it is forced. Deleting a remote branch
+  removes it on that remote.
 * The Remotes menu in the sidebar hides a whole remote: its branches leave the sidebar, the graph
   revisions, and the ref chips. Hidden remotes are listed at the bottom of the sidebar with a
   Show link. This is stored with the branch filter.

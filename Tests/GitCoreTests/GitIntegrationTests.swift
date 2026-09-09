@@ -145,6 +145,43 @@ import Testing
     #expect(try await repo.git.mergeBase("master", "island") == nil)
   }
 
+  @Test func branchOperations() async throws {
+    let repo = try await makeRepo()
+    let remote = repo.url.deletingLastPathComponent().appending(path: "lanes-remote-\(UUID().uuidString).git")
+    try await repo.git.run(["init", "-q", "--bare", remote.path])
+    try await repo.git.run(["remote", "add", "origin", remote.path])
+
+    try await repo.git.run(["branch", "feature"])
+    try await repo.git.switchBranch("feature")
+    #expect(try await repo.git.head().branch == "feature")
+    try await repo.git.renameBranch("feature", to: "renamed")
+    #expect(try await repo.git.head().branch == "renamed")
+
+    try await repo.git.push(branch: "renamed", to: "origin", setUpstream: true)
+    let pushed = try await repo.git.refs()
+    #expect(pushed.contains { $0.shortName == "origin/renamed" })
+    #expect(pushed.first { $0.shortName == "renamed" }?.upstream == "origin/renamed")
+
+    try await repo.git.switchBranch("master")
+    try await repo.git.deleteBranch("renamed", force: false)
+    try await repo.git.switchToTrackingBranch("origin/renamed")
+    #expect(try await repo.git.head().branch == "renamed")
+    try write(repo.url, "extra.txt", "unmerged\n")
+    try await repo.git.run(["add", "-A"])
+    try await repo.git.run(["commit", "-qm", "unmerged work"])
+    try await repo.git.switchBranch("master")
+    await #expect(throws: GitError.self) { try await repo.git.deleteBranch("renamed", force: false) }
+    do {
+      try await repo.git.deleteBranch("renamed", force: false)
+    } catch let error as GitError {
+      #expect(error.isNotFullyMerged)
+    }
+    try await repo.git.deleteBranch("renamed", force: true)
+    try await repo.git.deleteRemoteBranch("renamed", on: "origin")
+    let remaining = try await repo.git.refs()
+    #expect(remaining.map(\.shortName) == ["master"])
+  }
+
   @Test func refsHeadAndDiscovery() async throws {
     let repo = try await makeRepo()
     try await repo.git.run(["branch", "feature"])

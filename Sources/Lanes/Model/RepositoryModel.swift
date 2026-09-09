@@ -500,6 +500,73 @@ final class RepositoryModel {
     perform(forceRefresh: true) { try await self.git.fetchAll() }
   }
 
+  // MARK: Branch actions
+
+  func switchTo(_ ref: Ref) {
+    guard !ref.isHead else { return }
+    perform {
+      switch ref.kind {
+      case .localBranch:
+        try await self.git.switchBranch(ref.shortName)
+      case .remoteBranch:
+        if self.localBranches.contains(where: { $0.shortName == ref.branchName }) {
+          try await self.git.switchBranch(ref.branchName)
+        } else {
+          try await self.git.switchToTrackingBranch(ref.shortName)
+        }
+      case .tag:
+        return
+      }
+    }
+  }
+
+  /// Remotes a local branch can be pushed to: its upstream's remote when it has one, else every remote.
+  func pushRemotes(for ref: Ref) -> [String] {
+    guard ref.kind == .localBranch else { return [] }
+    if let upstream = ref.upstream, let remote = allRemoteNames.first(where: { upstream.hasPrefix($0 + "/") }) {
+      return [remote]
+    }
+    return allRemoteNames
+  }
+
+  func push(_ ref: Ref, to remote: String) {
+    let setUpstream = ref.upstream == nil
+    perform(forceRefresh: true) { try await self.git.push(branch: ref.shortName, to: remote, setUpstream: setUpstream) }
+  }
+
+  func rename(_ ref: Ref, to newName: String) {
+    let name = newName.trimmingCharacters(in: .whitespaces)
+    guard ref.kind == .localBranch, !name.isEmpty, name != ref.shortName else { return }
+    perform {
+      try await self.git.renameBranch(ref.shortName, to: name)
+      let renamed = "refs/heads/\(name)"
+      if self.filter.selected.remove(ref.fullName) != nil { self.filter.selected.insert(renamed) }
+      if self.trunkView.trunk == ref.fullName { self.trunkView.trunk = renamed }
+    }
+  }
+
+  /// Returns false when git refused because the branch is not fully merged, so the caller can ask
+  /// before forcing; every other failure is reported like any operation.
+  func deleteBranch(_ ref: Ref, force: Bool) async -> Bool {
+    guard !ref.isHead else { return true }
+    isBusy = true
+    defer { isBusy = false }
+    do {
+      switch ref.kind {
+      case .localBranch: try await git.deleteBranch(ref.shortName, force: force)
+      case .remoteBranch: if let remote = ref.remote { try await git.deleteRemoteBranch(ref.branchName, on: remote) }
+      case .tag: return true
+      }
+      filter.selected.remove(ref.fullName)
+      await refresh(force: ref.kind == .remoteBranch)
+    } catch let error as GitError where !force && error.isNotFullyMerged {
+      return false
+    } catch {
+      report(error)
+    }
+    return true
+  }
+
   func stage(_ change: WorkingCopyChange) { stage([change]) }
   func unstage(_ change: WorkingCopyChange) { unstage([change]) }
 
