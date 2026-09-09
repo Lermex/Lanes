@@ -155,6 +155,6 @@ filters apply, and worktrees just work.
   tagged sources.
 * Do not launch the app with a bare path argument; AppKit treats it as a document to open and
   SwiftUI then never opens the main window. Use `--repo=<path>` (what `make run` does).
-`LANES_DEBUG_SCRIPT=changes,history,sidebar-scroll,history-scroll` runs those steps a few seconds
-after launch and logs how long each took to lay out and draw; `snapshot` and `wait` are also
-steps. It is how the mode switch and list scrolling were profiled.
+* `LANES_DEBUG_SCRIPT=changes,history,sidebar-scroll,history-scroll` runs those steps a few seconds
+  after launch and logs how long each took to lay out and draw (`snapshot` and `wait` are steps
+  too). It is how mode switching and list scrolling were profiled.
