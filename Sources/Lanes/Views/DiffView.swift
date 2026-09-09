@@ -46,6 +46,14 @@ struct DiffView: View {
   @Environment(\.colorScheme) private var colorScheme
   @State private var selectedLines: Set<LineRef> = []
   @State private var anchor: LineRef?
+  @State private var scroll = ScrollState()
+
+  private struct ScrollState: Equatable {
+    var offsetX: CGFloat = 0
+    var viewportWidth: CGFloat = 0
+  }
+
+  private static let gutterWidth: CGFloat = 44 + 44 + 6 + 12
 
   private var theme: SyntaxTheme { themeStore.theme(isDark: colorScheme == .dark) }
   private var colors: DiffColors { DiffColors(theme: theme) }
@@ -106,33 +114,50 @@ struct DiffView: View {
           .padding()
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       } else {
-        ScrollView(.vertical) {
-          LazyVStack(alignment: .leading, spacing: 0) {
-            ForEach(presentation.rows) { row in
-              switch row {
-              case .hunkHeader(let hunk):
+        let contentWidth = max(presentation.textWidth + Self.gutterWidth + 24, scroll.viewportWidth)
+        ScrollView([.vertical, .horizontal]) {
+          LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+            ForEach(presentation.sections) { section in
+              let hunk = section.hunk
+              Section {
+                ForEach(section.lines) { entry in
+                  let line = entry.line
+                  let ref = LineRef(hunk: hunk.index, line: line.index)
+                  let selectable = supportsLineSelection && (line.kind == .added || line.kind == .removed)
+                  DiffLineRow(
+                    line: line, text: entry.text, colors: colors, isSelected: selectedLines.contains(ref),
+                    selectableText: !supportsLineSelection
+                  )
+                  .frame(width: contentWidth, alignment: .leading)
+                  .contentShape(Rectangle())
+                  .onTapGesture { if selectable { handleTap(ref, in: hunk) } }
+                  .accessibilityElement(children: selectable ? .ignore : .contain)
+                  .accessibilityLabel(selectable ? lineLabel(line) : "")
+                  .accessibilityAddTraits(selectable ? .isButton : [])
+                  .accessibilityAction { if selectable { handleTap(ref, in: hunk) } }
+                }
+              } header: {
+                // the header keeps the viewport's width and follows the horizontal offset, so its buttons stay visible
                 HunkHeaderRow(
                   hunk: hunk, action: hunkAction, colors: colors, selectedCount: selectedIndices(in: hunk).count,
                   performLines: { hunkAction?.performLines?(hunk, selectedIndices(in: hunk)) },
                   clearSelection: { selectedLines = selectedLines.filter { $0.hunk != hunk.index } }
                 )
-              case .line(let hunk, let line, let text):
-                let ref = LineRef(hunk: hunk.index, line: line.index)
-                let selectable = supportsLineSelection && (line.kind == .added || line.kind == .removed)
-                DiffLineRow(
-                  line: line, text: text, colors: colors, isSelected: selectedLines.contains(ref),
-                  selectableText: !supportsLineSelection
-                )
-                .contentShape(Rectangle())
-                .onTapGesture { if selectable { handleTap(ref, in: hunk) } }
-                .accessibilityElement(children: selectable ? .ignore : .contain)
-                .accessibilityLabel(selectable ? lineLabel(line) : "")
-                .accessibilityAddTraits(selectable ? .isButton : [])
-                .accessibilityAction { if selectable { handleTap(ref, in: hunk) } }
+                .frame(width: max(scroll.viewportWidth, 200))
+                .offset(x: scroll.offsetX)
+                .frame(width: contentWidth, alignment: .leading)
               }
             }
           }
-          .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .defaultScrollAnchor(.topLeading)
+        .onScrollGeometryChange(for: ScrollState.self) { geometry in
+          ScrollState(
+            offsetX: max(0, geometry.contentOffset.x + geometry.contentInsets.leading),
+            viewportWidth: geometry.containerSize.width
+          )
+        } action: { _, new in
+          scroll = new
         }
       }
     }
@@ -205,9 +230,11 @@ private struct DiffLineRow: View {
         .frame(width: 12)
         .foregroundStyle(markerColor)
       lineText
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
         .padding(.trailing, 8)
         .foregroundStyle(textStyle)
+      Spacer(minLength: 0)
     }
     .font(Theme.codeFont)
     .padding(.vertical, 1)

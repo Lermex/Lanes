@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import GitCore
 import Highlighting
@@ -21,21 +22,25 @@ struct DiffPresentation: Sendable {
     }
   }
 
-  enum Row: Identifiable, Sendable {
-    case hunkHeader(Hunk)
-    case line(hunk: Hunk, line: DiffLine, text: AttributedString)
+  struct Line: Identifiable, Sendable {
+    let line: DiffLine
+    let text: AttributedString
 
-    var id: String {
-      switch self {
-      case .hunkHeader(let hunk): "h\(hunk.index)"
-      case .line(let hunk, let line, _): "h\(hunk.index)l\(line.index)"
-      }
-    }
+    var id: Int { line.index }
+  }
+
+  struct Section: Identifiable, Sendable {
+    let hunk: Hunk
+    let lines: [Line]
+
+    var id: Int { hunk.index }
   }
 
   let key: Key
-  let rows: [Row]
+  let sections: [Section]
   let isHighlighted: Bool
+  /// Width of the widest line's text in the diff font, so rows can share one content width.
+  let textWidth: CGFloat
 
   static func plain(source: DiffSource, file: FileDiff, theme: SyntaxTheme) -> DiffPresentation {
     build(key: Key(source: source, file: file, theme: theme), file: file, oldText: nil, newText: nil, theme: theme, highlight: false)
@@ -47,18 +52,28 @@ struct DiffPresentation: Sendable {
     let grammar = highlight ? LanguageRegistry.grammar(forPath: file.path) : nil
     let oldHighlights = zip(grammar, oldText).map { Highlighter.highlight($1, grammar: $0) }
     let newHighlights = zip(grammar, newText).map { Highlighter.highlight($1, grammar: $0) }
-    let rows = file.hunks.flatMap { hunk -> [Row] in
-      [.hunkHeader(hunk)] + hunk.lines.map { line in
+    let sections = file.hunks.map { hunk -> Section in
+      Section(hunk: hunk, lines: hunk.lines.map { line in
         let runs: [StyledRun] =
           switch line.kind {
           case .removed: line.oldLineNumber.flatMap { oldHighlights?.runs(forLine: $0 - 1) } ?? []
           case .added, .context: line.newLineNumber.flatMap { newHighlights?.runs(forLine: $0 - 1) } ?? []
           case .noNewline: []
           }
-        return .line(hunk: hunk, line: line, text: attributed(line.text, runs: runs, theme: theme))
-      }
+        return Line(line: line, text: attributed(line.text, runs: runs, theme: theme))
+      })
     }
-    return DiffPresentation(key: key, rows: rows, isHighlighted: grammar != nil && (oldHighlights != nil || newHighlights != nil))
+    return DiffPresentation(
+      key: key, sections: sections, isHighlighted: grammar != nil && (oldHighlights != nil || newHighlights != nil),
+      textWidth: widestLine(in: file)
+    )
+  }
+
+  private static func widestLine(in file: FileDiff) -> CGFloat {
+    let texts = file.hunks.flatMap(\.lines).map { $0.text.replacingOccurrences(of: "\t", with: "    ") }
+    let candidates = texts.sorted { $0.utf16.count > $1.utf16.count }.prefix(5)
+    let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    return candidates.map { NSAttributedString(string: $0, attributes: [.font: font]).size().width }.max() ?? 0
   }
 
   private static func attributed(_ text: String, runs: [StyledRun], theme: SyntaxTheme) -> AttributedString {
