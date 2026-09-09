@@ -50,8 +50,8 @@ filters apply, and worktrees just work.
 * Diffs scroll in both directions: lines keep their natural width, row backgrounds span the widest
   line, and hunk headers stay pinned at the top and follow the horizontal offset so their buttons
   remain in view.
-* Line staging: in a staging diff, click a changed line to select it, shift-click to extend, ⌘-click
-  to toggle; the hunk header then offers "Stage N lines" (or Unstage; Return triggers it) and Clear.
+* Line staging: in a staging diff, click a changed line to select it, drag to select a range,
+  shift-click (or shift-drag) to extend, ⌘-click (or ⌘-drag) to add; the hunk header then offers "Stage N lines" (or Unstage; Return triggers it) and Clear.
   Unselected removals stay in place, unselected additions are left unstaged, and the same works for
   untracked files (only the chosen lines enter the index). Text selection is disabled in staging
   diffs so that clicks select lines; commit diffs keep selectable text.

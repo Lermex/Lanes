@@ -29,6 +29,22 @@ struct LineRef: Hashable {
   let line: Int
 }
 
+/// Frames of the currently laid-out diff rows, kept outside SwiftUI state so recording them
+/// doesn't re-render the view; only read while a drag is in progress.
+@MainActor
+final class LineFrames {
+  private var frames: [LineRef: CGRect] = [:]
+
+  func set(_ ref: LineRef, _ frame: CGRect) { frames[ref] = frame }
+  func reset() { frames = [:] }
+
+  func line(atY y: CGFloat, inHunk hunk: Int) -> LineRef? {
+    if let exact = frames.first(where: { $0.key.hunk == hunk && $0.value.minY <= y && y < $0.value.maxY })?.key { return exact }
+    let sameHunk = frames.filter { $0.key.hunk == hunk }
+    return sameHunk.min { abs($0.value.midY - y) < abs($1.value.midY - y) }?.key
+  }
+}
+
 struct DiffView: View {
   struct HunkAction {
     let title: String
@@ -47,6 +63,12 @@ struct DiffView: View {
   @State private var selectedLines: Set<LineRef> = []
   @State private var anchor: LineRef?
   @State private var scroll = ScrollState()
+  @State private var frames = LineFrames()
+  @State private var dragAnchor: LineRef?
+  @State private var dragMoved = false
+  @State private var selectionBeforeDrag: Set<LineRef> = []
+
+  private static let contentSpace = "diffContent"
 
   private struct ScrollState: Equatable {
     var offsetX: CGFloat = 0
@@ -71,7 +93,34 @@ struct DiffView: View {
       .onChange(of: file) {
         selectedLines = []
         anchor = nil
+        frames.reset()
       }
+  }
+
+  private func range(from start: LineRef, to end: LineRef, in hunk: Hunk) -> Set<LineRef> {
+    let bounds = min(start.line, end.line)...max(start.line, end.line)
+    return Set(hunk.changedLineIndices.filter(bounds.contains).map { LineRef(hunk: hunk.index, line: $0) })
+  }
+
+  private func dragChanged(_ value: DragGesture.Value, ref: LineRef, in hunk: Hunk) {
+    let flags = NSEvent.modifierFlags
+    if dragAnchor == nil {
+      selectionBeforeDrag = selectedLines
+      dragAnchor = flags.contains(.shift) && anchor?.hunk == ref.hunk ? anchor : ref
+      dragMoved = false
+    }
+    guard let base = dragAnchor else { return }
+    if abs(value.translation.height) > 3 || abs(value.translation.width) > 3 { dragMoved = true }
+    guard dragMoved, let target = frames.line(atY: value.location.y, inHunk: hunk.index) else { return }
+    let dragged = range(from: base, to: target, in: hunk)
+    selectedLines = flags.contains(.command) || flags.contains(.shift) ? selectionBeforeDrag.union(dragged) : dragged
+    anchor = base
+  }
+
+  private func dragEnded(ref: LineRef, in hunk: Hunk) {
+    if !dragMoved { handleTap(ref, in: hunk) }
+    dragAnchor = nil
+    dragMoved = false
   }
 
   private var supportsLineSelection: Bool { hunkAction?.performLines != nil }
@@ -130,10 +179,16 @@ struct DiffView: View {
                   )
                   .frame(width: contentWidth, alignment: .leading)
                   .contentShape(Rectangle())
-                  .onTapGesture { if selectable { handleTap(ref, in: hunk) } }
+                  .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.contentSpace)) } action: { frames.set(ref, $0) }
+                  .gesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.contentSpace))
+                      .onChanged { value in if selectable { dragChanged(value, ref: ref, in: hunk) } }
+                      .onEnded { _ in if selectable { dragEnded(ref: ref, in: hunk) } },
+                    isEnabled: selectable
+                  )
                   .accessibilityElement(children: selectable ? .ignore : .contain)
                   .accessibilityLabel(selectable ? lineLabel(line) : "")
-                  .accessibilityAddTraits(selectable ? .isButton : [])
+                  .accessibilityAddTraits(selectable ? (selectedLines.contains(ref) ? [.isButton, .isSelected] : .isButton) : [])
                   .accessibilityAction { if selectable { handleTap(ref, in: hunk) } }
                 }
               } header: {
@@ -149,6 +204,7 @@ struct DiffView: View {
               }
             }
           }
+          .coordinateSpace(.named(Self.contentSpace))
         }
         .defaultScrollAnchor(.topLeading)
         .onScrollGeometryChange(for: ScrollState.self) { geometry in
