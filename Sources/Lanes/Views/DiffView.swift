@@ -244,6 +244,7 @@ private struct HunkHeaderRow: View {
       Text(hunkRange)
         .font(Theme.codeFont)
         .foregroundStyle(.secondary)
+        .lineLimit(1)
       if !hunk.heading.isEmpty {
         Text(hunk.heading).font(Theme.codeFont).foregroundStyle(.tertiary).lineLimit(1)
       }

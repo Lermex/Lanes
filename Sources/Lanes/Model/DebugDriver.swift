@@ -19,6 +19,19 @@ enum DebugDriver {
         case "history-scroll": await scroll(tableWithRowsClosestTo: model.commits.count, label: "history")
         case "wait": try? await Task.sleep(for: .seconds(2))
         case "snapshot": WindowSnapshot.capture()
+        case "shrink": shrinkWindow()
+        case "fit-min":
+          if let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) {
+            window.setContentSize(window.contentMinSize)
+            debugLog("window resized to its minimum \(window.contentMinSize)")
+          }
+        case "minsize":
+          if let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) {
+            debugLog("window: \(window.frame.size) contentMinSize=\(window.contentMinSize)")
+          }
+        case "measure-views": measureViews(model: model)
+        case "splits": logSplitViews()
+        case "constraints": logWidthConstraints()
         case "sidebar-window": showSidebarWindow(model: model)
         case "snapshot-sidebar": WindowSnapshot.capture(window: sidebarWindow)
         default: debugLog("debug script: unknown step \(step)")
@@ -40,6 +53,81 @@ enum DebugDriver {
     window.contentView = NSHostingView(rootView: SidebarView(model: model))
     window.makeKeyAndOrderFront(nil)
     sidebarWindow = window
+  }
+
+  /// Logs each main view's minimum size (what it reports when offered zero space).
+  private static func measureViews(model: RepositoryModel) {
+    let themeStore = ThemeStore()
+    func report<V: View>(_ name: String, _ view: V) {
+      let controller = NSHostingController(rootView: view.environment(themeStore))
+      let minimum = controller.sizeThatFits(in: .zero)
+      let ideal = controller.sizeThatFits(in: NSSize(width: 10_000, height: 10_000))
+      debugLog("min size of \(name): \(minimum) (ideal \(ideal))")
+    }
+    report("SidebarView", SidebarView(model: model))
+    report("HistoryView", HistoryView(model: model))
+    report("WorkingCopyView", WorkingCopyView(model: model))
+    report("DetailView", DetailView(model: model))
+    if let commit = model.commits.first {
+      report("CommitDetailView", CommitDetailView(model: model, commit: commit))
+    }
+  }
+
+  /// Logs every split view's panes with the widths they insist on, to find what sets the window minimum.
+  private static func logSplitViews() {
+    guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible), let root = window.contentView else { return }
+    func walk(_ view: NSView, depth: Int) {
+      if let split = view as? NSSplitView {
+        debugLog("split \(type(of: split)) vertical=\(split.isVertical) frame=\(split.frame.size)")
+        for (index, pane) in split.arrangedSubviews.enumerated() {
+          let hosting = firstHostingView(in: pane)
+          debugLog("  pane \(index): \(type(of: pane)) width=\(pane.frame.width) fitting=\(pane.fittingSize.width) intrinsic=\(pane.intrinsicContentSize.width) hostingFitting=\(hosting?.fittingSize.width ?? -1) hosting=\(hosting.map { String(describing: type(of: $0)) } ?? "none")")
+        }
+      }
+      for child in view.subviews { walk(child, depth: depth + 1) }
+    }
+    walk(root, depth: 0)
+    debugLog("window contentMinSize=\(window.contentMinSize)")
+  }
+
+  /// Logs every width constraint on hosting views, scroll views and tables under the window.
+  private static func logWidthConstraints() {
+    guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible), let root = window.contentView else { return }
+    func walk(_ view: NSView, path: String) {
+      let name = String(describing: type(of: view))
+      let interesting = name.hasPrefix("NSHostingView") || view is NSScrollView || view is NSTableView || view is NSSplitView
+      if interesting {
+        let widths = view.constraints.filter { $0.firstAttribute == .width || $0.secondAttribute == .width }
+        if !widths.isEmpty || view is NSTableView {
+          debugLog("\(path)/\(name.prefix(40)) frame=\(Int(view.frame.width)) fitting=\(Int(view.fittingSize.width)) hugging=\(view.contentHuggingPriority(for: .horizontal).rawValue) compression=\(view.contentCompressionResistancePriority(for: .horizontal).rawValue)")
+          for constraint in widths {
+            debugLog("    \(constraint.relation == .greaterThanOrEqual ? ">=" : constraint.relation == .lessThanOrEqual ? "<=" : "==") \(Int(constraint.constant)) priority=\(constraint.priority.rawValue) active=\(constraint.isActive) id=\(constraint.identifier ?? "-")")
+          }
+          if let table = view as? NSTableView {
+            debugLog("    table columns: \(table.tableColumns.map { "\(Int($0.width)) [min \(Int($0.minWidth)) max \(Int($0.maxWidth))]" }) rows=\(table.numberOfRows)")
+          }
+        }
+      }
+      for (index, child) in view.subviews.enumerated() { walk(child, path: path + "/" + String(index)) }
+    }
+    walk(root, path: "")
+  }
+
+  private static func firstHostingView(in view: NSView) -> NSView? {
+    if String(describing: type(of: view)).hasPrefix("NSHostingView") { return view }
+    for child in view.subviews {
+      if let found = firstHostingView(in: child) { return found }
+    }
+    return nil
+  }
+
+  /// Asks the window to become small and logs what AppKit allowed, which is the effective minimum.
+  private static func shrinkWindow() {
+    guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) else { return }
+    debugLog("window before: \(window.frame.size) minSize=\(window.minSize) contentMinSize=\(window.contentMinSize)")
+    window.setContentSize(NSSize(width: 800, height: 500))
+    window.contentView?.layoutSubtreeIfNeeded()
+    debugLog("window after: \(window.frame.size) fitting=\(window.contentView?.fittingSize ?? .zero)")
   }
 
   private static func measure(_ label: String, _ change: () -> Void) async {

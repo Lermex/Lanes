@@ -30,27 +30,51 @@ struct HistoryView: View {
   @AppStorage(HistoryColumnWidths.dateKey) private var dateWidth = 135.0
   @AppStorage(HistoryColumnWidths.commitKey) private var commitWidth = 80.0
   @State private var rowWidth: CGFloat?
-  @State private var containerWidth: CGFloat?
+
+  /// Width offered to the whole view; the header and rows derive their columns from it rather
+  /// than measuring themselves, which fed back into the column widths when they overflowed.
+  @State private var availableWidth: CGFloat?
 
   private var fitGraphWidth: CGFloat {
     let lanes = model.isTrunkViewActive ? (model.trunkLayout?.maxLaneCount ?? 1) : model.graph.maxLaneCount
     return CGFloat(max(lanes, 1)) * Theme.laneWidth + 10
   }
 
+  /// A fitted graph column never takes more than 40 % of the list, so a repository with many lanes
+  /// still leaves room for the description on a small screen; the user can widen it by hand.
   private var graphWidth: CGFloat {
-    graphWidthSetting > 0 ? CGFloat(graphWidthSetting) : fitGraphWidth
+    if graphWidthSetting > 0 { return CGFloat(graphWidthSetting) }
+    guard let availableWidth else { return fitGraphWidth }
+    return min(fitGraphWidth, max(120, availableWidth * 0.4))
   }
 
+  /// The stored column widths, scaled down together when the list is too narrow to also give the
+  /// description at least 200 pt, so a small window squeezes columns instead of overlapping them.
   private var widths: RowWidths {
-    RowWidths(graph: graphWidth, author: CGFloat(authorWidth), date: CGFloat(dateWidth), commit: CGFloat(commitWidth))
+    let stored = RowWidths(graph: graphWidth, author: CGFloat(authorWidth), date: CGFloat(dateWidth), commit: CGFloat(commitWidth))
+    guard let availableWidth else { return stored }
+    let fixed = stored.graph + stored.author + stored.date + stored.commit
+    let room = availableWidth - 16 - 4 * HistoryColumnWidths.gap - 200
+    guard room > 0, fixed > room else { return stored }
+    let factor = max(0.3, room / fixed)
+    return RowWidths(
+      graph: stored.graph * factor, author: stored.author * factor, date: stored.date * factor, commit: stored.commit * factor
+    )
   }
 
   var body: some View {
+    GeometryReader { geometry in
+      content
+        .onChange(of: geometry.size.width, initial: true) { _, width in availableWidth = width }
+    }
+  }
+
+  private var content: some View {
     VStack(spacing: 0) {
       header
         .padding(.horizontal, headerInset)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
+        .clipped()
       Divider()
       ScrollViewReader { proxy in
         List(selection: $model.selection) {
@@ -78,24 +102,24 @@ struct HistoryView: View {
 
   // the List insets its rows symmetrically; the header lives outside the List and mirrors that inset
   private var headerInset: CGFloat {
-    guard let rowWidth, let containerWidth else { return 0 }
-    return max(0, (containerWidth - rowWidth) / 2)
+    guard let rowWidth, let availableWidth else { return 0 }
+    return max(0, (availableWidth - rowWidth) / 2)
   }
 
   private var header: some View {
     HStack(spacing: 0) {
-      headerLabel("Graph").frame(width: graphWidth, alignment: .leading)
+      headerLabel("Graph").frame(width: widths.graph, alignment: .leading)
       ColumnResizer(
-        width: Binding(get: { Double(graphWidth) }, set: { graphWidthSetting = $0 }),
+        width: Binding(get: { Double(widths.graph) }, set: { graphWidthSetting = $0 }),
         minimum: 30, growsToTheRight: true, reset: { graphWidthSetting = 0 }
       )
       headerLabel("Description").frame(maxWidth: .infinity, alignment: .leading)
       ColumnResizer(width: $authorWidth, minimum: 50, growsToTheRight: false, reset: { authorWidth = 150 })
-      headerLabel("Author").frame(width: CGFloat(authorWidth), alignment: .leading)
+      headerLabel("Author").frame(width: widths.author, alignment: .leading)
       ColumnResizer(width: $dateWidth, minimum: 70, growsToTheRight: false, reset: { dateWidth = 135 })
-      headerLabel("Date").frame(width: CGFloat(dateWidth), alignment: .leading)
+      headerLabel("Date").frame(width: widths.date, alignment: .leading)
       ColumnResizer(width: $commitWidth, minimum: 50, growsToTheRight: false, reset: { commitWidth = 80 })
-      headerLabel("Commit").frame(width: CGFloat(commitWidth), alignment: .leading)
+      headerLabel("Commit").frame(width: widths.commit, alignment: .leading)
     }
     .padding(.horizontal, 8)
     .frame(height: 24)
@@ -167,8 +191,7 @@ private struct HistoryRow: View {
         .frame(width: widths.graph, height: Theme.historyRowHeight)
         .clipped()
       gap
-      description
-        .frame(maxWidth: .infinity, alignment: .leading)
+      Flexible { description }
       gap
       author.frame(width: widths.author, alignment: .leading)
       gap
@@ -229,6 +252,7 @@ private struct HistoryRow: View {
         ForEach(commit.decorations.filter { model.isDecorationVisible($0) && !hidden.contains($0) }, id: \.self) { decoration in
           RefChip(name: decoration, kind: model.refKinds[decoration], isHead: decoration == "HEAD")
             .branchMenu(model: model, name: decoration)
+            .layoutPriority(1)
           if model.refKinds[decoration] != .tag, let pullRequest = model.pullRequest(forBranchName: decoration) {
             PullRequestBadge(pullRequest: pullRequest)
           }
@@ -288,6 +312,7 @@ private struct CapsuleDescription: View {
       ForEach(group.names, id: \.self) { name in
         RefChip(name: name, kind: group.isMerged ? nil : model.refKinds[name], isHead: false)
           .branchMenu(model: model, name: name)
+          .layoutPriority(1)
       }
       if let pullRequest = group.names.lazy.compactMap({ model.pullRequest(forBranchName: $0) }).first {
         PullRequestBadge(pullRequest: pullRequest)

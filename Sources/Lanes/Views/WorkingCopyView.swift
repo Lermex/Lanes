@@ -6,15 +6,14 @@ struct WorkingCopyView: View {
   @Bindable var model: RepositoryModel
 
   var body: some View {
-    HSplitView {
+    SplitPanes(.horizontal, storageKey: "split.workingCopy", firstMinimum: 300, secondMinimum: 360, defaultFraction: 0.45) {
       VStack(spacing: 0) {
         PendingFilesList(model: model)
         Divider()
         CommitComposer(model: model)
       }
-      .frame(minWidth: 340, idealWidth: 640, maxWidth: .infinity)
+    } second: {
       diffPane
-        .frame(minWidth: 400, idealWidth: 760, maxWidth: .infinity, maxHeight: .infinity)
     }
   }
 
@@ -121,9 +120,11 @@ private struct PendingFileRow: View {
       )
       .disabled(change.kind == .unmerged)
       StatusIcon(kind: change.kind)
-      Text(change.path)
-        .lineLimit(1)
-        .truncationMode(.middle)
+      Flexible {
+        Text(change.path)
+          .lineLimit(1)
+          .truncationMode(.middle)
+      }
       Spacer(minLength: 4)
       Menu {
         if change.area == .staged {

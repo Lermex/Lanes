@@ -6,7 +6,7 @@ struct CommitDetailView: View {
   let commit: Commit
 
   var body: some View {
-    HSplitView {
+    SplitPanes(.horizontal, storageKey: "split.commitDetail", firstMinimum: 260, secondMinimum: 360, defaultFraction: 0.4) {
       VStack(alignment: .leading, spacing: 0) {
         header
         Divider()
@@ -15,7 +15,7 @@ struct CommitDetailView: View {
             ForEach(files) { file in
               HStack(spacing: 8) {
                 StatusIcon(kind: kind(of: file))
-                Text(file.path).lineLimit(1).truncationMode(.middle)
+                Flexible { Text(file.path).lineLimit(1).truncationMode(.middle) }
               }
               .frame(height: 24)
               .tag(file.path)
@@ -29,8 +29,8 @@ struct CommitDetailView: View {
           ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
       }
-      .frame(minWidth: 260, idealWidth: 520, maxWidth: .infinity)
       .task(id: commit.sha) { await model.ensureCommitDiff(sha: commit.sha) }
+    } second: {
       if let path = model.selectedCommitPath, let file = model.diff(forCommit: commit.sha, path: path) {
         VStack(spacing: 0) {
           HStack {
@@ -43,9 +43,9 @@ struct CommitDetailView: View {
           Divider()
           DiffView(model: model, source: .commitFile(sha: commit.sha, path: path), file: file, hunkAction: nil)
         }
-        .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
-        Text("Select a file").foregroundStyle(.secondary).frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
+        Text("Select a file").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
       }
     }
   }

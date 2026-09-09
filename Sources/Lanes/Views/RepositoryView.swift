@@ -11,17 +11,18 @@ struct RepositoryView: View {
         .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 400)
     } detail: {
       // The working copy pane is the same node in both modes, so switching keeps its file list,
-      // diff, and scroll positions instead of rebuilding them.
-      VSplitView {
-        HistoryView(model: model)
-          .frame(minHeight: model.mode == .history ? 160 : 0, maxHeight: model.mode == .history ? .infinity : 0)
-          .clipped()
+      // diff, and scroll positions instead of rebuilding them; in Changes mode the history pane
+      // collapses instead of going away.
+      SplitPanes(
+        .vertical, storageKey: "split.history", firstMinimum: 160, secondMinimum: 200, defaultFraction: 0.6,
+        firstCollapsed: model.mode == .changes
+      ) {
+        Flexible([.horizontal, .vertical]) { HistoryView(model: model) }
+      } second: {
         if model.mode == .changes || model.selection == .workingCopy {
           WorkingCopyView(model: model)
-            .frame(minHeight: 200)
         } else {
           DetailView(model: model)
-            .frame(minHeight: 200)
         }
       }
       .overlay(alignment: .bottom) { errorBanner }

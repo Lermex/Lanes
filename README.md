@@ -116,6 +116,9 @@ filters apply, and worktrees just work.
   diffs so that clicks select lines; commit diffs keep selectable text.
 * Two modes, switched with the toolbar segment or ⌘1 / ⌘2: History (graph on top, commit or
   working-copy detail below) and Changes (the staging area on its own, sidebar collapsed).
+* The window's minimum size is what the staging area needs (about 930 pt wide with the sidebar),
+  so it fits a 13-inch screen; on narrow windows the history columns scale down together so the
+  description keeps at least 200 pt, and a fitted graph column takes at most 40 % of the list.
 * History columns resize by dragging the dividers in the header; widths persist. The graph column
   defaults to fitting every lane; double-click its divider or use View › Fit Graph Column (⇧⌘G)
   to return to that.

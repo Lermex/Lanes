@@ -12,7 +12,7 @@ struct LanesApp: App {
       RootView()
         .environment(themeStore)
     }
-    .defaultSize(width: 1400, height: 900)
+    .defaultSize(width: 1200, height: 780)
     .restorationBehavior(.disabled)
     .commands {
       RepositoryCommands()
