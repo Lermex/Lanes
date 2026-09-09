@@ -16,18 +16,12 @@ public struct Ref: Sendable, Hashable, Identifiable {
   /// Committer date of the commit the ref points at.
   public let committerDate: Date?
 
-  public var id: String { fullName }
-
-  public var remote: String? {
-    guard kind == .remoteBranch else { return nil }
-    return shortName.split(separator: "/", maxSplits: 1).first.map(String.init)
-  }
-
+  /// The remote a remote-tracking branch belongs to.
+  public let remote: String?
   /// The short name without the remote prefix, so `origin/feature` and `feature` compare alike.
-  public var branchName: String {
-    guard let remote, shortName.hasPrefix(remote + "/") else { return shortName }
-    return String(shortName.dropFirst(remote.count + 1))
-  }
+  public let branchName: String
+
+  public var id: String { fullName }
 
   public init(
     fullName: String, shortName: String, kind: RefKind, target: String, isHead: Bool, upstream: String?,
@@ -40,6 +34,8 @@ public struct Ref: Sendable, Hashable, Identifiable {
     self.isHead = isHead
     self.upstream = upstream
     self.committerDate = committerDate
+    remote = kind == .remoteBranch ? shortName.split(separator: "/", maxSplits: 1).first.map(String.init) : nil
+    branchName = remote.map { shortName.hasPrefix($0 + "/") ? String(shortName.dropFirst($0.count + 1)) : shortName } ?? shortName
   }
 }
 

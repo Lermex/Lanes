@@ -53,6 +53,7 @@ private struct PendingFilesList: View {
         section(title: "Unstaged files", changes: sorted(model.status.unstaged), isStaged: false)
       }
       .listStyle(.plain)
+      .fixedListRowHeight(26)
       .environment(\.defaultMinListRowHeight, 24)
       .onKeyPress(.space) {
         model.toggleStagedSelection()
@@ -71,13 +72,13 @@ private struct PendingFilesList: View {
       }
     } header: {
       HStack(spacing: 8) {
-        Toggle(isOn: Binding(get: { isStaged && !changes.isEmpty }, set: { checked in
-          if checked { model.stage(changes) } else { model.unstage(changes) }
-        })) { EmptyView() }
-          .toggleStyle(.checkbox)
-          .labelsHidden()
-          .disabled(changes.isEmpty)
-          .accessibilityLabel(isStaged ? "Unstage all files" : "Stage all files")
+        Checkbox(
+          isOn: Binding(get: { isStaged && !changes.isEmpty }, set: { checked in
+            if checked { model.stage(changes) } else { model.unstage(changes) }
+          }),
+          label: isStaged ? "Unstage all files" : "Stage all files"
+        )
+        .disabled(changes.isEmpty)
         Text(title).font(.headline)
         Text("\(changes.count)").foregroundStyle(.secondary).monospacedDigit()
         Spacer()
@@ -114,11 +115,11 @@ private struct PendingFileRow: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      Toggle(isOn: Binding(get: { change.area == .staged }, set: { _ in model.toggleStaged([change]) })) { EmptyView() }
-        .toggleStyle(.checkbox)
-        .labelsHidden()
-        .disabled(change.kind == .unmerged)
-        .accessibilityLabel((change.area == .staged ? "Unstage " : "Stage ") + change.path)
+      Checkbox(
+        isOn: Binding(get: { change.area == .staged }, set: { _ in model.toggleStaged([change]) }),
+        label: (change.area == .staged ? "Unstage " : "Stage ") + change.path
+      )
+      .disabled(change.kind == .unmerged)
       StatusIcon(kind: change.kind)
       Text(change.path)
         .lineLimit(1)

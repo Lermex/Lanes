@@ -10,17 +10,18 @@ struct RepositoryView: View {
       SidebarView(model: model)
         .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 400)
     } detail: {
-      Group {
-        switch model.mode {
-        case .history:
-          VSplitView {
-            HistoryView(model: model)
-              .frame(minHeight: 160)
-            DetailView(model: model)
-              .frame(minHeight: 200)
-          }
-        case .changes:
+      // The working copy pane is the same node in both modes, so switching keeps its file list,
+      // diff, and scroll positions instead of rebuilding them.
+      VSplitView {
+        HistoryView(model: model)
+          .frame(minHeight: model.mode == .history ? 160 : 0, maxHeight: model.mode == .history ? .infinity : 0)
+          .clipped()
+        if model.mode == .changes || model.selection == .workingCopy {
           WorkingCopyView(model: model)
+            .frame(minHeight: 200)
+        } else {
+          DetailView(model: model)
+            .frame(minHeight: 200)
         }
       }
       .overlay(alignment: .bottom) { errorBanner }

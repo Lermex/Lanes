@@ -48,6 +48,7 @@ final class WindowState {
       RecentRepositories.remember(info.workTree)
       let model = RepositoryModel(info: info)
       self.model = model
+      DebugDriver.runIfRequested(model: model)
       await model.refresh()
     } catch {
       openError = "\(url.path) is not a git repository: \(error)"

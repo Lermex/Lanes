@@ -62,12 +62,12 @@ struct HistoryView: View {
           if model.historyTruncated {
             Button("Load more commits…") { model.loadMoreHistory() }
               .buttonStyle(.link)
-              .frame(maxWidth: .infinity)
-              .padding(.vertical, 6)
+              .frame(maxWidth: .infinity, minHeight: Theme.historyRowHeight)
           }
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, Theme.historyRowHeight)
+        .fixedListRowHeight(Theme.historyRowHeight)
         .onChange(of: model.selection) { _, selection in
           if let selection { proxy.scrollTo(selection, anchor: nil) }
         }

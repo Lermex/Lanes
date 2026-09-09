@@ -51,13 +51,13 @@ struct SidebarView: View {
         .controlSize(.small)
       }
       Section("Branches") {
-        ForEach(branches(model.localBranches)) { ref in
+        ForEach(filtered(model.sortedLocalBranches(by: sort))) { ref in
           BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
         }
       }
       ForEach(model.remoteNames, id: \.self) { remote in
         Section(isExpanded: expansion(for: remote)) {
-          ForEach(branches(model.remoteBranches(remote))) { ref in
+          ForEach(filtered(model.sortedRemoteBranches(remote, by: sort))) { ref in
             BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
           }
         } header: {
@@ -139,10 +139,10 @@ struct SidebarView: View {
     return hidden == 0 ? "Remotes" : "Remotes (\(hidden) hidden)"
   }
 
-  private func branches(_ refs: [Ref]) -> [Ref] {
+  private func filtered(_ refs: [Ref]) -> [Ref] {
     let needle = query.trimmingCharacters(in: .whitespaces)
-    let matching = needle.isEmpty ? refs : refs.filter { $0.shortName.localizedCaseInsensitiveContains(needle) }
-    return model.sortedBranches(matching, by: sort)
+    guard !needle.isEmpty else { return refs }
+    return refs.filter { $0.shortName.localizedCaseInsensitiveContains(needle) }
   }
 
   private func expansion(for remote: String) -> Binding<Bool> {
@@ -168,10 +168,7 @@ private struct BranchRow: View {
 
   var body: some View {
     HStack(spacing: 6) {
-      Toggle(isOn: shown) { EmptyView() }
-        .toggleStyle(.checkbox)
-        .labelsHidden()
-        .accessibilityLabel(ref.shortName)
+      Checkbox(isOn: shown, label: ref.shortName)
         .disabled(ref.isHead)
         .help(ref.isHead ? "The checked-out branch is always shown" : "Show in the graph")
       Text(ref.branchName)

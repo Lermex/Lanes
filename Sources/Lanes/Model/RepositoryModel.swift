@@ -25,7 +25,15 @@ final class RepositoryModel {
   let info: RepositoryInfo
   let git: Git
 
-  private(set) var refs: [Ref] = []
+  private(set) var refs: [Ref] = [] {
+    didSet {
+      refIndex = RefIndex(refs: refs)
+      updateTrunkRef()
+      updateBranchesWithPullRequests()
+      sortedBranchesCache = [:]
+    }
+  }
+  @ObservationIgnored private var refIndex = RefIndex(refs: [])
   private(set) var head = HeadState(sha: nil, branch: nil)
   private(set) var commits: [Commit] = []
   private(set) var graph = GraphLayout.empty
@@ -39,9 +47,19 @@ final class RepositoryModel {
   private(set) var isRefreshing = false
   private(set) var isBusy = false
   private(set) var historyTruncated = false
-  private(set) var pullRequests: [String: PullRequest] = [:]
+  private(set) var pullRequests: [String: PullRequest] = [:] {
+    didSet {
+      updateBranchesWithPullRequests()
+      sortedBranchesCache = [:]
+    }
+  }
   /// Date of each branch's fork point from the trunk, keyed by ref full name.
-  private(set) var forkDates: [String: Date] = [:]
+  private(set) var forkDates: [String: Date] = [:] {
+    didSet { sortedBranchesCache = [:] }
+  }
+  private(set) var trunkRef: Ref?
+  private(set) var branchesWithPullRequests: [Ref] = []
+  @ObservationIgnored private var sortedBranchesCache: [String: [Ref]] = [:]
   private(set) var trunkLayout: TrunkLayout?
   var errorMessage: String?
   var mode: ViewMode = .history
@@ -50,6 +68,7 @@ final class RepositoryModel {
     didSet {
       guard filter != oldValue else { return }
       BranchFilterStore.save(filter, for: info)
+      updateBranchesWithPullRequests()
       scheduleHistoryReload()
     }
   }
@@ -57,6 +76,7 @@ final class RepositoryModel {
     didSet {
       guard trunkView != oldValue else { return }
       TrunkViewStore.save(trunkView, for: info)
+      updateTrunkRef()
       if trunkView.trunk != oldValue.trunk {
         scheduleHistoryReload()
         scheduleForkDates()
@@ -111,11 +131,15 @@ final class RepositoryModel {
 
   // MARK: Trunk view
 
-  var trunkRef: Ref? {
+  private func updateTrunkRef() {
+    trunkRef = resolveTrunkRef()
+  }
+
+  private func resolveTrunkRef() -> Ref? {
     if let chosen = trunkView.trunk, let ref = refs.first(where: { $0.fullName == chosen }) { return ref }
     let candidates = ["refs/remotes/origin/master", "refs/remotes/origin/main"]
     if let preferred = refs.first(where: { candidates.contains($0.fullName) }) { return preferred }
-    if let anyRemote = refs.first(where: { $0.kind == .remoteBranch && ["master", "main"].contains($0.shortName.split(separator: "/").last.map(String.init) ?? "") }) {
+    if let anyRemote = refs.first(where: { $0.kind == .remoteBranch && ["master", "main"].contains($0.branchName) }) {
       return anyRemote
     }
     return refs.first { $0.kind == .localBranch && ["master", "main"].contains($0.shortName) }
@@ -169,8 +193,8 @@ final class RepositoryModel {
 
   // MARK: Derived state
 
-  var localBranches: [Ref] { refs.filter { $0.kind == .localBranch } }
-  var allRemoteNames: [String] { Array(Set(refs.compactMap(\.remote))).sorted() }
+  var localBranches: [Ref] { refIndex.localBranches }
+  var allRemoteNames: [String] { refIndex.remoteNames }
   var remoteNames: [String] { allRemoteNames.filter { !filter.hiddenRemotes.contains($0) } }
   var hiddenRemoteNames: [String] { allRemoteNames.filter { filter.hiddenRemotes.contains($0) } }
 
@@ -178,8 +202,25 @@ final class RepositoryModel {
     if hidden { filter.hiddenRemotes.insert(remote) } else { filter.hiddenRemotes.remove(remote) }
   }
 
-  var branchesWithPullRequests: [Ref] {
-    refs.filter { $0.kind != .tag && !filter.isRemoteHidden($0) && pullRequest(for: $0) != nil }
+  private func updateBranchesWithPullRequests() {
+    branchesWithPullRequests = refs.filter { $0.kind != .tag && !filter.isRemoteHidden($0) && pullRequest(for: $0) != nil }
+  }
+
+  func sortedLocalBranches(by sort: BranchSort) -> [Ref] {
+    cachedSort("local \(sort.rawValue)") { sort.sorted(localBranches, pullRequest: pullRequest(for:), forkDate: { forkDates[$0.fullName] }) }
+  }
+
+  func sortedRemoteBranches(_ remote: String, by sort: BranchSort) -> [Ref] {
+    cachedSort("remote \(remote) \(sort.rawValue)") {
+      sort.sorted(remoteBranches(remote), pullRequest: pullRequest(for:), forkDate: { forkDates[$0.fullName] })
+    }
+  }
+
+  private func cachedSort(_ key: String, _ compute: () -> [Ref]) -> [Ref] {
+    if let cached = sortedBranchesCache[key] { return cached }
+    let sorted = compute()
+    sortedBranchesCache[key] = sorted
+    return sorted
   }
 
   func selectNoBranches() {
@@ -212,11 +253,7 @@ final class RepositoryModel {
   }
 
   func pullRequest(for ref: Ref) -> PullRequest? {
-    pullRequest(forBranchName: ref.shortName)
-  }
-
-  func sortedBranches(_ refs: [Ref], by sort: BranchSort) -> [Ref] {
-    sort.sorted(refs, pullRequest: pullRequest(for:), forkDate: { forkDates[$0.fullName] })
+    pullRequests[ref.branchName]
   }
 
   // MARK: Fork dates
@@ -274,17 +311,13 @@ final class RepositoryModel {
 
   func pullRequest(forBranchName name: String) -> PullRequest? {
     if let direct = pullRequests[name] { return direct }
-    return allRemoteNames.lazy.compactMap { remote -> PullRequest? in
-      guard name.hasPrefix(remote + "/") else { return nil }
-      return self.pullRequests[String(name.dropFirst(remote.count + 1))]
-    }.first
+    guard let remote = refIndex.remoteNames.first(where: { name.hasPrefix($0 + "/") }) else { return nil }
+    return pullRequests[String(name.dropFirst(remote.count + 1))]
   }
-  func remoteBranches(_ remote: String) -> [Ref] { refs.filter { $0.remote == remote } }
-  var tags: [Ref] { refs.filter { $0.kind == .tag } }
 
-  var refKinds: [String: RefKind] {
-    Dictionary(refs.map { ($0.shortName, $0.kind) }, uniquingKeysWith: { first, _ in first })
-  }
+  func remoteBranches(_ remote: String) -> [Ref] { refIndex.remoteBranches[remote] ?? [] }
+  var tags: [Ref] { refIndex.tags }
+  var refKinds: [String: RefKind] { refIndex.kinds }
 
   var allChanges: [WorkingCopyChange] { status.staged + status.unstaged }
 
