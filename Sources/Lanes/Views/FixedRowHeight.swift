@@ -19,7 +19,8 @@ struct FixedRowHeight: NSViewRepresentable {
 
     override func viewDidMoveToWindow() {
       super.viewDidMoveToWindow()
-      apply()
+      // never mutate the table inside the layout pass that inserted this view
+      DispatchQueue.main.async { [weak self] in self?.apply() }
     }
 
     func apply() {
