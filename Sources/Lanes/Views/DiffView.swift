@@ -84,10 +84,15 @@ struct DiffView: View {
     model.presentations[DiffPresentation.Key(source: source, file: file, theme: theme)] ?? .plain(source: source, file: file, theme: theme)
   }
 
+  private struct PresentationRequest: Hashable {
+    let key: DiffPresentation.Key
+    let generation: Int
+  }
+
   var body: some View {
     content
       .background(colors.background ?? .clear)
-      .task(id: DiffPresentation.Key(source: source, file: file, theme: theme)) {
+      .task(id: PresentationRequest(key: DiffPresentation.Key(source: source, file: file, theme: theme), generation: model.presentationGeneration)) {
         await model.ensurePresentation(for: source, file: file, theme: theme)
       }
       .onChange(of: file) {

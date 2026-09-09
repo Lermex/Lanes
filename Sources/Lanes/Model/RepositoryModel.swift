@@ -35,6 +35,7 @@ final class RepositoryModel {
   private(set) var untrackedDiffs: [String: FileDiff] = [:]
   private(set) var commitDiffs: [String: [FileDiff]] = [:]
   private(set) var presentations: [DiffPresentation.Key: DiffPresentation] = [:]
+  private(set) var presentationGeneration = 0
   private(set) var isRefreshing = false
   private(set) var isBusy = false
   private(set) var historyTruncated = false
@@ -279,7 +280,7 @@ final class RepositoryModel {
       unstagedDiffs = Self.byPath(try await unstaged)
       stagedDiffs = Self.byPath(try await staged)
       untrackedDiffs = [:]
-      presentations = presentations.filter { $0.key.isImmutable }
+      pruneStalePresentations()
       expandCheckedOutBranchIfChanged()
       try await reloadHistory()
       reconcileSelection()
@@ -359,6 +360,14 @@ final class RepositoryModel {
     if selectedChangeIDs.isEmpty, let first = status.unstaged.first ?? status.staged.first {
       selectedChangeIDs = [first.id]
     }
+  }
+
+  // a presentation stays valid while its diff is unchanged; views re-request after every refresh, which
+  // is a no-op when the presentation survived and a rebuild when the diff moved on
+  private func pruneStalePresentations() {
+    let live = Set((Array(unstagedDiffs.values) + Array(stagedDiffs.values)).map(\.hashValue))
+    presentations = presentations.filter { $0.key.isImmutable || live.contains($0.key.fileIdentity) }
+    presentationGeneration += 1
   }
 
   private static func byPath(_ diffs: [FileDiff]) -> [String: FileDiff] {
