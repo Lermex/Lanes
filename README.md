@@ -100,9 +100,9 @@ filters apply, and worktrees just work.
   defaults to fitting every lane; double-click its divider or use View › Fit Graph Column (⇧⌘G)
   to return to that.
 * The sidebar header shows how many branches are in the graph and keeps the controls behind two
-  menus, like Mail's mailbox header: the sort/filter menu (≡) holds Sort by, Show all branches and
-  Show tags; the more menu (…) holds Show in graph (None / Local branches / Branches with pull
-  requests) and the Remotes submenu.
+  menus, like Mail's mailbox header: the filter menu (≡, tinted while a filter is on) holds Show
+  all branches, Show tags, Show in graph (None / Local branches / Branches with pull requests) and
+  the Remotes submenu; the more menu (…) holds Sort by.
 * Sort by orders every branch section by name, by whether the branch has an open pull request, by
   fork date (the date of the branch's merge base with the trunk), or by last commit. Date orders
   show a relative date on each row. Fork dates come from one `git merge-base` per branch tip,

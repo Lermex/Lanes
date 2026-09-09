@@ -16,21 +16,8 @@ struct SidebarHeader: View {
       Spacer(minLength: 8)
       HStack(spacing: 0) {
         Menu {
-          Picker("Sort by", selection: $sort) {
-            ForEach(BranchSort.allCases) { Text($0.title).tag($0) }
-          }
-          .pickerStyle(.inline)
-          Divider()
           Toggle("Show all branches", isOn: Binding(get: { model.filter.showAll }, set: { model.setShowAll($0) }))
           Toggle("Show tags", isOn: $model.filter.includeTags)
-        } label: {
-          Image(systemName: "line.3.horizontal.decrease")
-            .frame(width: 26, height: 22)
-            .contentShape(Rectangle())
-        }
-        .help("Sort and filter")
-        .accessibilityLabel("Sort and filter")
-        Menu {
           Section("Show in graph") {
             Button("None") { model.selectNoBranches() }
             Button("Local branches") { model.selectLocalBranches() }
@@ -48,22 +35,42 @@ struct SidebarHeader: View {
             }
           }
         } label: {
-          Image(systemName: "ellipsis")
-            .frame(width: 26, height: 22)
+          Image(systemName: "line.3.horizontal.decrease")
+            .font(.system(size: 15, weight: .medium))
+            .foregroundStyle(isFiltering ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+            .frame(width: 38, height: 30)
             .contentShape(Rectangle())
         }
-        .help("Select branches and remotes")
+        .help("Filter what the sidebar and graph show")
+        .accessibilityLabel("Filter")
+        Menu {
+          Picker("Sort by", selection: $sort) {
+            ForEach(BranchSort.allCases) { Text($0.title).tag($0) }
+          }
+          .pickerStyle(.inline)
+        } label: {
+          Image(systemName: "ellipsis")
+            .font(.system(size: 15, weight: .medium))
+            .frame(width: 38, height: 30)
+            .contentShape(Rectangle())
+        }
+        .help("Sort")
         .accessibilityLabel("More")
       }
       .menuStyle(.button)
-      .buttonStyle(.borderless)
+      .buttonStyle(.plain)
       .menuIndicator(.hidden)
       .padding(.horizontal, 4)
-      .glassEffect(.regular.interactive(), in: .capsule)
+      .glassEffect(.regular.interactive(), in: Capsule())
     }
     .padding(.horizontal, 12)
     .padding(.top, 6)
     .padding(.bottom, 8)
+  }
+
+  /// Mirrors Mail, whose filter button is tinted while a filter is on.
+  private var isFiltering: Bool {
+    !model.filter.showAll || !model.filter.hiddenRemotes.isEmpty
   }
 
   private var summary: String {
