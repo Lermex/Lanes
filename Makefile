@@ -6,7 +6,7 @@ BUILD    := .build/$(CONFIG)
 BUNDLE   := Build/$(APP).app
 CONTENTS := $(BUNDLE)/Contents
 
-.PHONY: build app run test clean
+.PHONY: build app run test clean icon
 
 build:
 	swift build -c $(CONFIG)
@@ -20,6 +20,7 @@ app: build
 	plutil -replace CFBundleShortVersionString -string "$(VERSION)" $(CONTENTS)/Info.plist
 	plutil -replace CFBundleVersion -string "$(BUILD_NUMBER)" $(CONTENTS)/Info.plist
 	cp -R Resources/Themes $(CONTENTS)/Resources/Themes
+	cp Resources/AppIcon.icns $(CONTENTS)/Resources/
 	codesign --force --sign - $(BUNDLE)
 	@echo "built $(BUNDLE)"
 
@@ -29,6 +30,22 @@ run: app
 
 test:
 	swift test
+
+ICON_DIR := Resources/AppIcon
+ICONSET  := $(ICON_DIR)/AppIcon.iconset
+
+# renders Resources/AppIcon/icon.svg into the 1024 px master and the .icns the bundle ships
+icon:
+	mkdir -p .build
+	swiftc -O Scripts/rendersvg.swift -o .build/rendersvg
+	.build/rendersvg $(ICON_DIR)/icon.svg $(ICON_DIR)/icon-1024.png
+	rm -rf $(ICONSET) && mkdir -p $(ICONSET)
+	for s in 16 32 128 256 512; do \
+	  sips -z $$s $$s $(ICON_DIR)/icon-1024.png --out $(ICONSET)/icon_$${s}x$${s}.png >/dev/null; \
+	  sips -z $$((s*2)) $$((s*2)) $(ICON_DIR)/icon-1024.png --out $(ICONSET)/icon_$${s}x$${s}@2x.png >/dev/null; \
+	done
+	iconutil -c icns $(ICONSET) -o Resources/AppIcon.icns
+	rm -rf $(ICONSET)
 
 clean:
 	rm -rf .build Build

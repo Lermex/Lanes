@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Lanes app icon: the right half of a road seen from above, travelling upward, with a lane
+       merging in from the right. Artwork lives in an 824 px rounded square centred on the 1024 px
+       macOS icon canvas; everything is clipped to that shape. Regenerate the PNG and .icns with
+       `make icon` (WebKit renders it, so the filters below work). Lane width (line centre to line
+       centre) is 350; the merge curves share the centre (812 250) so the merging lane keeps its
+       width around the bend. -->
+  <defs>
+    <clipPath id="shape">
+      <rect x="100" y="100" width="824" height="824" rx="184"/>
+    </clipPath>
+
+    <!-- asphalt: fine grain, aggregate-sized grain, large faint patches, sparse bright specks -->
+    <filter id="asphalt" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="5" result="fineRaw"/>
+      <feColorMatrix in="fineRaw" type="matrix" result="fine"
+        values="0.18 0 0 0 0.41   0.18 0 0 0 0.41   0.18 0 0 0 0.41   0 0 0 0 1"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.3" numOctaves="2" seed="7" result="stoneRaw"/>
+      <feColorMatrix in="stoneRaw" type="matrix" result="stone"
+        values="0.14 0 0 0 0.43   0.14 0 0 0 0.43   0.14 0 0 0 0.43   0 0 0 0 1"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="3" seed="9" result="patchRaw"/>
+      <feColorMatrix in="patchRaw" type="matrix" result="patch"
+        values="0.12 0 0 0 0.44   0.12 0 0 0 0.44   0.12 0 0 0 0.44   0 0 0 0 1"/>
+      <feBlend in="SourceGraphic" in2="fine" mode="overlay" result="a"/>
+      <feBlend in="a" in2="stone" mode="overlay" result="b"/>
+      <feBlend in="b" in2="patch" mode="overlay" result="c"/>
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="3" result="speckRaw"/>
+      <feColorMatrix in="speckRaw" type="matrix" result="speck"
+        values="0 0 0 0 0.85   0 0 0 0 0.85   0 0 0 0 0.85   8 0 0 0 -5.4"/>
+      <feComponentTransfer in="speck" result="specks"><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+      <feComposite in="specks" in2="c" operator="over"/>
+    </filter>
+
+    <!-- paint: ragged edges, a little patchy wear, and a hint of grain -->
+    <filter id="paint" x="-0.05" y="-0.05" width="1.1" height="1.1" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="2" result="edgeRaw"/>
+      <feDisplacementMap in="SourceGraphic" in2="edgeRaw" scale="4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+      <!-- wear stretched along the direction of travel -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.045 0.012" numOctaves="3" seed="8" result="wearRaw"/>
+      <feColorMatrix in="wearRaw" type="matrix" result="wearMask"
+        values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0.7 0 0 0 0.68"/>
+      <feComposite in="rough" in2="wearMask" operator="in" result="worn"/>
+      <feTurbulence type="fractalNoise" baseFrequency="1" numOctaves="2" seed="4" result="grainRaw"/>
+      <feColorMatrix in="grainRaw" type="matrix" result="grain"
+        values="0.12 0 0 0 0.44   0.12 0 0 0 0.44   0.12 0 0 0 0.44   0 0 0 0 1"/>
+      <feBlend in="worn" in2="grain" mode="overlay" result="blended"/>
+      <feComposite in="blended" in2="worn" operator="in"/>
+    </filter>
+
+    <!-- wheel tracks: darker bands where tyres run -->
+    <filter id="soft" x="-0.5" y="-0.1" width="2" height="1.2">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.55" stop-color="#000000"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- daylight from the upper left, falling off toward the lower right -->
+    <radialGradient id="light" cx="0.25" cy="0.2" r="1.1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.28"/>
+    </radialGradient>
+  </defs>
+
+  <g clip-path="url(#shape)">
+    <rect x="100" y="100" width="824" height="824" fill="#414245" filter="url(#asphalt)"/>
+    <g transform="translate(100 100)">
+      <g filter="url(#soft)" opacity="0.2">
+        <rect x="97" y="-40" width="70" height="904" fill="#000000"/>
+        <rect x="287" y="-40" width="70" height="904" fill="#000000"/>
+        <rect x="447" y="-40" width="70" height="400" fill="url(#fade)"/>
+        <rect x="637" y="-40" width="70" height="400" fill="url(#fade)"/>
+      </g>
+      <g fill="none" stroke="#ECE9E1" filter="url(#paint)">
+        <!-- centre line at the left edge -->
+        <line x1="52" y1="0" x2="52" y2="824" stroke="#E8B520" stroke-width="36"/>
+        <!-- lane divider: straight above the gore, then sweeping down into the merging lane -->
+        <path d="M402 -30 V250 A410 410 0 0 0 812 660 H900" stroke-width="52" stroke-dasharray="120 84"/>
+        <!-- outer edge of the merged road, curving in from the right -->
+        <path d="M752 -30 V250 A60 60 0 0 0 812 310 H900" stroke-width="32"/>
+        <!-- edge of the through lane below the gore -->
+        <line x1="402" y1="470" x2="402" y2="854" stroke-width="32"/>
+      </g>
+    </g>
+    <rect x="100" y="100" width="824" height="824" fill="url(#light)"/>
+  </g>
+</svg>
