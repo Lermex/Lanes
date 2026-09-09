@@ -8,6 +8,17 @@ A small native macOS git client built around two things other clients get wrong:
 
 Everything else (fetch, push, rebase, …) stays in the terminal.
 
+## Installing
+
+Every push to `master` publishes a build to [GitHub Releases](https://github.com/Lermex/Lanes/releases)
+(`.github/workflows/release.yml`; the version is `0.1.<run number>`, `[skip release]` in the commit
+message skips it). Unzip, move `Lanes.app` to Applications, and clear the quarantine flag once,
+because the build is only ad-hoc signed:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Lanes.app
+```
+
 ## Building
 
 Requires Xcode 26 and macOS 26.

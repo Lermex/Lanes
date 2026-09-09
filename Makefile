@@ -1,5 +1,7 @@
 APP      := Lanes
 CONFIG   ?= release
+VERSION  ?= 0.0.0
+BUILD_NUMBER ?= 0
 BUILD    := .build/$(CONFIG)
 BUNDLE   := Build/$(APP).app
 CONTENTS := $(BUNDLE)/Contents
@@ -15,6 +17,8 @@ app: build
 	cp $(BUILD)/$(APP) $(CONTENTS)/MacOS/
 	cp -R $(BUILD)/*.bundle $(CONTENTS)/Resources/
 	cp Resources/Info.plist $(CONTENTS)/
+	plutil -replace CFBundleShortVersionString -string "$(VERSION)" $(CONTENTS)/Info.plist
+	plutil -replace CFBundleVersion -string "$(BUILD_NUMBER)" $(CONTENTS)/Info.plist
 	cp -R Resources/Themes $(CONTENTS)/Resources/Themes
 	codesign --force --sign - $(BUNDLE)
 	@echo "built $(BUNDLE)"
