@@ -188,3 +188,12 @@ import Testing
     #expect(unstagedNewFile.contains("--- a/new.txt\n+++ b/new.txt"))
   }
 }
+
+@Suite struct RemoteWebURLTests {
+  @Test func convertsFetchURLsToBrowsableOnes() {
+    #expect(RemoteWebURL.webURL(for: "git@github.com:Lermex/Lanes.git")?.absoluteString == "https://github.com/Lermex/Lanes")
+    #expect(RemoteWebURL.webURL(for: "https://github.com/Lermex/Lanes.git\n")?.absoluteString == "https://github.com/Lermex/Lanes")
+    #expect(RemoteWebURL.webURL(for: "ssh://git@github.com/Lermex/Lanes")?.absoluteString == "https://github.com/Lermex/Lanes")
+    #expect(RemoteWebURL.webURL(for: "/Users/x/repo.git") == nil)
+  }
+}

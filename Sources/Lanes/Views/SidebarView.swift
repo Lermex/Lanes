@@ -6,10 +6,6 @@ struct SidebarView: View {
   @State private var query = ""
   @State private var collapsedRemotes: Set<String> = []
   @AppStorage("branchSort") private var sort = BranchSort.name
-  @State private var renaming: Ref?
-  @State private var newBranchName = ""
-  @State private var deleting: Ref?
-  @State private var forceDeleting: Ref?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -17,13 +13,13 @@ struct SidebarView: View {
       List {
         Section("Branches") {
           ForEach(filtered(model.sortedLocalBranches(by: sort))) { ref in
-            BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
+            BranchRow(model: model, ref: ref, sort: sort)
           }
         }
         ForEach(model.remoteNames, id: \.self) { remote in
           Section(isExpanded: expansion(for: remote)) {
             ForEach(filtered(model.sortedRemoteBranches(remote, by: sort))) { ref in
-              BranchRow(model: model, ref: ref, sort: sort, menuAction: handle)
+              BranchRow(model: model, ref: ref, sort: sort)
             }
           } header: {
             Text(remote)
@@ -33,57 +29,6 @@ struct SidebarView: View {
       .listStyle(.sidebar)
     }
     .searchable(text: $query, placement: .sidebar, prompt: "Filter branches")
-    .alert("Rename Branch", isPresented: presenting($renaming)) {
-      TextField("New name", text: $newBranchName)
-      Button("Rename") {
-        if let ref = renaming { model.rename(ref, to: newBranchName) }
-      }
-      .disabled(newBranchName.trimmingCharacters(in: .whitespaces).isEmpty)
-      Button("Cancel", role: .cancel) {}
-    } message: {
-      Text("Rename “\(renaming?.shortName ?? "")”.")
-    }
-    .confirmationDialog(
-      "Delete “\(deleting?.shortName ?? "")”?", isPresented: presenting($deleting), titleVisibility: .visible
-    ) {
-      Button(deleting?.kind == .remoteBranch ? "Delete on Remote" : "Delete", role: .destructive) {
-        guard let ref = deleting else { return }
-        Task { if await !model.deleteBranch(ref, force: false) { forceDeleting = ref } }
-      }
-      Button("Cancel", role: .cancel) {}
-    } message: {
-      if let remote = deleting?.remote {
-        Text("The branch is removed from \(remote).")
-      } else {
-        Text("The local branch is removed. Git refuses if it has unmerged commits; you can force it then.")
-      }
-    }
-    .confirmationDialog(
-      "“\(forceDeleting?.shortName ?? "")” is not fully merged", isPresented: presenting($forceDeleting),
-      titleVisibility: .visible
-    ) {
-      Button("Delete Anyway", role: .destructive) {
-        guard let ref = forceDeleting else { return }
-        Task { _ = await model.deleteBranch(ref, force: true) }
-      }
-      Button("Cancel", role: .cancel) {}
-    } message: {
-      Text("Its commits are not reachable from its upstream or HEAD; deleting it may lose them.")
-    }
-  }
-
-  private func handle(_ action: BranchMenuAction, _ ref: Ref) {
-    switch action {
-    case .rename:
-      newBranchName = ref.shortName
-      renaming = ref
-    case .delete:
-      deleting = ref
-    }
-  }
-
-  private func presenting(_ value: Binding<Ref?>) -> Binding<Bool> {
-    Binding(get: { value.wrappedValue != nil }, set: { if !$0 { value.wrappedValue = nil } })
   }
 
   private func filtered(_ refs: [Ref]) -> [Ref] {
@@ -102,16 +47,10 @@ struct SidebarView: View {
   }
 }
 
-enum BranchMenuAction {
-  case rename
-  case delete
-}
-
 private struct BranchRow: View {
   let model: RepositoryModel
   let ref: Ref
   let sort: BranchSort
-  let menuAction: (BranchMenuAction, Ref) -> Void
 
   var body: some View {
     HStack(spacing: 6) {
@@ -142,28 +81,7 @@ private struct BranchRow: View {
     }
     .contentShape(Rectangle())
     .onTapGesture { revealInHistory() }
-    .contextMenu {
-      Button("Switch to \(ref.branchName)") { model.switchTo(ref) }
-        .disabled(ref.isHead)
-      if ref.kind == .localBranch {
-        let remotes = model.pushRemotes(for: ref)
-        if remotes.count == 1, let remote = remotes.first {
-          Button("Push to \(remote)") { model.push(ref, to: remote) }
-        } else if remotes.count > 1 {
-          Menu("Push to") {
-            ForEach(remotes, id: \.self) { remote in
-              Button(remote) { model.push(ref, to: remote) }
-            }
-          }
-        }
-        Button("Rename…") { menuAction(.rename, ref) }
-      }
-      Button(ref.remote.map { "Delete from \($0)…" } ?? "Delete…", role: .destructive) { menuAction(.delete, ref) }
-        .disabled(ref.isHead)
-      Divider()
-      Button("Use as Trunk") { model.setTrunk(ref) }
-        .disabled(model.trunkRef?.fullName == ref.fullName)
-    }
+    .contextMenu { BranchMenuItems(model: model, ref: ref) }
   }
 
   private var sortDate: Date? {

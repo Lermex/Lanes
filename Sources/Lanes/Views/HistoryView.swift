@@ -179,6 +179,27 @@ private struct HistoryRow: View {
     .foregroundStyle(.primary)
     .padding(.horizontal, 8)
     .frame(height: Theme.historyRowHeight)
+    .contentShape(Rectangle())
+    .contextMenu { rowMenu }
+  }
+
+  @ViewBuilder
+  private var rowMenu: some View {
+    switch item.kind {
+    case .commit(let commit, _, _, _):
+      CommitMenuItems(model: model, commit: commit)
+    case .capsule(let group, _):
+      let expanded = model.trunkView.expanded.contains(group.id)
+      Button(expanded ? "Collapse" : "Expand") { model.toggleGroup(group.id) }
+      if let ref = group.names.lazy.compactMap({ model.ref(named: $0) }).first(where: { $0.kind == .localBranch })
+        ?? group.names.lazy.compactMap({ model.ref(named: $0) }).first
+      {
+        Divider()
+        BranchMenuItems(model: model, ref: ref)
+      }
+    case .workingCopy:
+      EmptyView()
+    }
   }
 
   private var gap: some View { Spacer().frame(width: HistoryColumnWidths.gap) }
@@ -207,6 +228,7 @@ private struct HistoryRow: View {
       HStack(spacing: 4) {
         ForEach(commit.decorations.filter { model.isDecorationVisible($0) && !hidden.contains($0) }, id: \.self) { decoration in
           RefChip(name: decoration, kind: model.refKinds[decoration], isHead: decoration == "HEAD")
+            .branchMenu(model: model, name: decoration)
           if model.refKinds[decoration] != .tag, let pullRequest = model.pullRequest(forBranchName: decoration) {
             PullRequestBadge(pullRequest: pullRequest)
           }
@@ -265,6 +287,7 @@ private struct CapsuleDescription: View {
       .accessibilityLabel(isExpanded ? "Collapse \(group.names.first ?? "")" : "Expand \(group.names.first ?? "")")
       ForEach(group.names, id: \.self) { name in
         RefChip(name: name, kind: group.isMerged ? nil : model.refKinds[name], isHead: false)
+          .branchMenu(model: model, name: name)
       }
       if let pullRequest = group.names.lazy.compactMap({ model.pullRequest(forBranchName: $0) }).first {
         PullRequestBadge(pullRequest: pullRequest)
@@ -434,5 +457,17 @@ struct GraphCell: View {
     context.stroke(path, with: .color(.secondary), style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
     let dot = Path(ellipseIn: CGRect(x: x(lane) - 4.5, y: midY - 4.5, width: 9, height: 9))
     context.stroke(dot, with: .color(.secondary), lineWidth: 2)
+  }
+}
+
+extension View {
+  /// Adds the branch context menu when `name` is a branch; tags and HEAD get none.
+  @ViewBuilder
+  func branchMenu(model: RepositoryModel, name: String) -> some View {
+    if let ref = model.ref(named: name), ref.kind != .tag {
+      contextMenu { BranchMenuItems(model: model, ref: ref) }
+    } else {
+      self
+    }
   }
 }

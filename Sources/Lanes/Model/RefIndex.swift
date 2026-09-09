@@ -7,6 +7,7 @@ struct RefIndex {
   let remoteNames: [String]
   let tags: [Ref]
   let kinds: [String: RefKind]
+  let byShortName: [String: Ref]
 
   init(refs: [Ref]) {
     localBranches = refs.filter { $0.kind == .localBranch }
@@ -14,5 +15,6 @@ struct RefIndex {
     remoteNames = remoteBranches.keys.sorted()
     tags = refs.filter { $0.kind == .tag }
     kinds = Dictionary(refs.map { ($0.shortName, $0.kind) }, uniquingKeysWith: { first, _ in first })
+    byShortName = Dictionary(refs.map { ($0.shortName, $0) }, uniquingKeysWith: { first, _ in first })
   }
 }

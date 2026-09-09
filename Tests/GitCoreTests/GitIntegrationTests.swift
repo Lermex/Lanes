@@ -182,6 +182,35 @@ import Testing
     #expect(remaining.map(\.shortName) == ["master"])
   }
 
+  @Test func commitOperations() async throws {
+    let repo = try await makeRepo()
+    let base = try await repo.git.text(["rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines)
+    try write(repo.url, "second.txt", "second\n")
+    try await repo.git.run(["add", "-A"])
+    try await repo.git.run(["commit", "-qm", "second"])
+    let second = try await repo.git.text(["rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+    try await repo.git.createBranch("from-base", at: base, switchTo: false)
+    try await repo.git.createTag("v-base", at: base)
+    let refs = try await repo.git.refs()
+    #expect(refs.first { $0.shortName == "from-base" }?.target == base)
+    #expect(refs.first { $0.shortName == "v-base" }?.target == base)
+
+    try await repo.git.checkoutDetached(base)
+    #expect(try await repo.git.head().isDetached)
+    try await repo.git.createBranch("picked", at: base, switchTo: true)
+    try await repo.git.cherryPick(second)
+    #expect(FileManager.default.fileExists(atPath: repo.url.appending(path: "second.txt").path))
+    try await repo.git.revert(try await repo.git.text(["rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines))
+    #expect(!FileManager.default.fileExists(atPath: repo.url.appending(path: "second.txt").path))
+
+    try await repo.git.reset(to: base, mode: .hard)
+    #expect(try await repo.git.text(["rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines) == base)
+    try await repo.git.run(["remote", "add", "origin", "git@github.com:Lermex/Lanes.git"])
+    #expect(try await repo.git.remoteURL("origin") == "git@github.com:Lermex/Lanes.git")
+    #expect(try await repo.git.remoteURL("nope") == nil)
+  }
+
   @Test func refsHeadAndDiscovery() async throws {
     let repo = try await makeRepo()
     try await repo.git.run(["branch", "feature"])

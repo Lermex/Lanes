@@ -107,6 +107,10 @@ filters apply, and worktrees just work.
   fork date (the date of the branch's merge base with the trunk), or by last commit. Date orders
   show a relative date on each row. Fork dates come from one `git merge-base` per branch tip,
   computed in the background after each refresh and remembered per tip.
+* Right-click a commit in the history for Check Out Commit (detached), New Branch Here, Tag,
+  Cherry-pick, Revert, Reset the current branch to it (soft, mixed or hard, after a confirmation),
+  Copy SHA, Copy Message and Open on GitHub (when origin is a GitHub-style remote). Capsule rows
+  and ref chips carry the branch menu below; capsules also offer Expand / Collapse.
 * Right-click a branch in the sidebar for Switch (a remote branch gets a local tracking branch),
   Push (to the upstream's remote, or a chosen remote when the branch has no upstream yet, which
   then sets it), Rename, Delete, and Use as Trunk. Deleting asks first; if git refuses because the

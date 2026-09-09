@@ -64,6 +64,15 @@ final class RepositoryModel {
   var errorMessage: String?
   var mode: ViewMode = .history
 
+  // Dialog requests shared by the sidebar and history context menus; RepositoryDialogs presents them.
+  var branchToRename: Ref?
+  var branchToDelete: Ref?
+  var branchToForceDelete: Ref?
+  var commitForNewBranch: Commit?
+  var commitToTag: Commit?
+  var commitToResetTo: Commit?
+  private(set) var originWebURL: URL?
+
   var filter: BranchFilter {
     didSet {
       guard filter != oldValue else { return }
@@ -316,6 +325,7 @@ final class RepositoryModel {
   }
 
   func remoteBranches(_ remote: String) -> [Ref] { refIndex.remoteBranches[remote] ?? [] }
+  func ref(named shortName: String) -> Ref? { refIndex.byShortName[shortName] }
   var tags: [Ref] { refIndex.tags }
   var refKinds: [String: RefKind] { refIndex.kinds }
 
@@ -372,6 +382,7 @@ final class RepositoryModel {
       async let staged = git.stagedDiff()
       self.refs = try await refs
       self.head = try await head
+      if originWebURL == nil, let remote = try await git.remoteURL("origin") { originWebURL = RemoteWebURL.webURL(for: remote) }
       self.status = try await status
       unstagedDiffs = Self.byPath(try await unstaged)
       stagedDiffs = Self.byPath(try await staged)
@@ -576,6 +587,43 @@ final class RepositoryModel {
       if self.filter.selected.remove(ref.fullName) != nil { self.filter.selected.insert(renamed) }
       if self.trunkView.trunk == ref.fullName { self.trunkView.trunk = renamed }
     }
+  }
+
+  // MARK: Commit actions
+
+  func checkout(_ commit: Commit) {
+    perform { try await self.git.checkoutDetached(commit.sha) }
+  }
+
+  func createBranch(named newName: String, at commit: Commit, switchTo: Bool) {
+    let name = newName.trimmingCharacters(in: .whitespaces)
+    guard !name.isEmpty else { return }
+    perform {
+      try await self.git.createBranch(name, at: commit.sha, switchTo: switchTo)
+      self.filter.selected.insert("refs/heads/\(name)")
+    }
+  }
+
+  func createTag(named newName: String, at commit: Commit) {
+    let name = newName.trimmingCharacters(in: .whitespaces)
+    guard !name.isEmpty else { return }
+    perform { try await self.git.createTag(name, at: commit.sha) }
+  }
+
+  func cherryPick(_ commit: Commit) {
+    perform { try await self.git.cherryPick(commit.sha) }
+  }
+
+  func revert(_ commit: Commit) {
+    perform { try await self.git.revert(commit.sha) }
+  }
+
+  func reset(to commit: Commit, mode: ResetMode) {
+    perform { try await self.git.reset(to: commit.sha, mode: mode) }
+  }
+
+  func webURL(for commit: Commit) -> URL? {
+    originWebURL?.appending(path: "commit/\(commit.sha)")
   }
 
   /// Returns false when git refused because the branch is not fully merged, so the caller can ask

@@ -26,6 +26,7 @@ struct RepositoryView: View {
       }
       .overlay(alignment: .bottom) { errorBanner }
     }
+    .modifier(RepositoryDialogs(model: model))
     .navigationTitle(model.info.displayName)
     .navigationSubtitle(subtitle)
     .toolbar {
