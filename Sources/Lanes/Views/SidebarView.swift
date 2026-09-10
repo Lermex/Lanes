@@ -170,6 +170,7 @@ private struct StashRow: View {
         Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .contentShape(Rectangle())
     .listRowBackground(
       isSelected ? RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.28)).padding(.horizontal, 4) : nil
