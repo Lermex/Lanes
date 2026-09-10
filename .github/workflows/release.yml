@@ -124,13 +124,30 @@ jobs:
       - name: Zip
         run: ditto -c -k --keepParent Build/Lanes.app 'Build/Lanes-${{ steps.version.outputs.version }}.zip'
 
+      - name: Write the Sparkle appcast
+        if: steps.config.outputs.signing == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_FOOTER: ${{ steps.config.outputs.footer }}
+        run: |
+          [ -n "$SPARKLE_PRIVATE_KEY" ] || { echo "::error::SPARKLE_PRIVATE_KEY is missing"; exit 1; }
+          mkdir -p Build/appcast
+          cp "Build/Lanes-$VERSION.zip" Build/appcast/
+          swift Scripts/release.swift notes-html '${{ steps.version.outputs.last }}' "$VERSION" > "Build/appcast/Lanes-$VERSION.html"
+          echo "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle.key"
+          .build/artifacts/sparkle/Sparkle/bin/generate_appcast --ed-key-file "$RUNNER_TEMP/sparkle.key" \
+            --download-url-prefix "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/v$VERSION/" \
+            -o Build/appcast.xml Build/appcast
+          cat Build/appcast.xml
+
       - name: Publish release
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v$VERSION" "Build/Lanes-$VERSION.zip" \
+          gh release create "v$VERSION" "Build/Lanes-$VERSION.zip" $([ -f Build/appcast.xml ] && echo Build/appcast.xml) \
             --title "Lanes $VERSION" \
             --target "$GITHUB_SHA" \
             --notes-file Build/notes.md
@@ -143,3 +160,4 @@ jobs:
           path: |
             Build/Lanes-*.zip
             Build/notes.md
+            Build/appcast.xml

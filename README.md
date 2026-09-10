@@ -42,6 +42,17 @@ every commit since that tag grouped as Added / Changed / Fixed / Removed with a 
 the zip under the new tag. `dry_run=true` does everything except publish and keeps the zip and notes
 as a workflow artifact. Pushes to `master` only run the tests (`.github/workflows/ci.yml`).
 
+### Updates
+
+The app updates itself with [Sparkle](https://sparkle-project.org): it checks
+`https://github.com/Lermex/Lanes/releases/latest/download/appcast.xml` once a day and on
+Lanes › Check for Updates…, and installs the zip from the release after verifying its EdDSA
+signature and that it was signed by the same Developer ID. The release workflow writes that
+`appcast.xml` (with the notes as HTML) using the `SPARKLE_PRIVATE_KEY` secret; the matching public
+key is `SUPublicEDKey` in `Resources/Info.plist`. The private key also lives in the keychain of the
+Mac that generated it, as "Private key for signing Sparkle updates". `LANES_UPDATE_FEED=<url>`
+points a build at another appcast for trying updates locally.
+
 ### Signing and notarization
 
 With four repository secrets in place the workflow signs the bundle with a Developer ID certificate

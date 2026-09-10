@@ -95,13 +95,51 @@ func notes(since lastTag: String, version: String) -> String {
   return lines.joined(separator: "\n") + "\n"
 }
 
+/// The notes as HTML for the Sparkle appcast: headings, bullets, links, code and bold only.
+func html(fromMarkdown markdown: String) -> String {
+  func inline(_ text: String) -> String {
+    var escaped = text.replacingOccurrences(of: "&", with: "&amp;")
+      .replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
+    escaped = escaped.replacingOccurrences(of: #"\[([^\]]+)\]\(([^)]+)\)"#, with: "<a href=\"$2\">$1</a>", options: .regularExpression)
+    escaped = escaped.replacingOccurrences(of: #"`([^`]+)`"#, with: "<code>$1</code>", options: .regularExpression)
+    escaped = escaped.replacingOccurrences(of: #"\*\*([^*]+)\*\*"#, with: "<strong>$1</strong>", options: .regularExpression)
+    return escaped
+  }
+  var lines: [String] = []
+  var inList = false
+  var inCode = false
+  for raw in markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+    if raw.hasPrefix("```") {
+      if inList { lines.append("</ul>"); inList = false }
+      lines.append(inCode ? "</pre>" : "<pre>")
+      inCode.toggle()
+      continue
+    }
+    if inCode { lines.append(raw.replacingOccurrences(of: "<", with: "&lt;")); continue }
+    if raw.hasPrefix("- ") {
+      if !inList { lines.append("<ul>"); inList = true }
+      lines.append("<li>\(inline(String(raw.dropFirst(2))))</li>")
+      continue
+    }
+    if inList { lines.append("</ul>"); inList = false }
+    if raw.hasPrefix("### ") { lines.append("<h3>\(inline(String(raw.dropFirst(4))))</h3>") }
+    else if raw.hasPrefix("## ") { lines.append("<h2>\(inline(String(raw.dropFirst(3))))</h2>") }
+    else if raw == "---" { lines.append("<hr>") }
+    else if !raw.isEmpty { lines.append("<p>\(inline(raw))</p>") }
+  }
+  if inList { lines.append("</ul>") }
+  return lines.joined(separator: "\n") + "\n"
+}
+
 let arguments = Array(CommandLine.arguments.dropFirst())
 switch arguments.first {
 case "next-version" where arguments.count == 3:
   print(nextVersion(after: arguments[1], bump: arguments[2]))
 case "notes" where arguments.count == 3:
   print(notes(since: arguments[1], version: arguments[2]), terminator: "")
+case "notes-html" where arguments.count == 3:
+  print(html(fromMarkdown: notes(since: arguments[1], version: arguments[2])), terminator: "")
 default:
-  FileHandle.standardError.write(Data("usage: release.swift next-version <last> <patch|minor|major> | notes <last tag> <version>\n".utf8))
+  FileHandle.standardError.write(Data("usage: release.swift next-version <last> <patch|minor|major> | notes|notes-html <last tag> <version>\n".utf8))
   exit(2)
 }

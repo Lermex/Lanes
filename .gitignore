@@ -3,3 +3,7 @@ Build/
 *.xcodeproj
 .swiftpm/
 .DS_Store
+
+# signing material, never commit
+*.p12
+*.p8

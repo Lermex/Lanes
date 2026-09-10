@@ -18,6 +18,7 @@ enum DebugDriver {
         case "sidebar-scroll": await scroll(tableWithRowsClosestTo: model.refs.count, label: "sidebar")
         case "history-scroll": await scroll(tableWithRowsClosestTo: model.commits.count, label: "history")
         case "wait": try? await Task.sleep(for: .seconds(2))
+        case "check-updates": Updates.controller.updater.checkForUpdates()
         case "snapshot": WindowSnapshot.capture()
         case "shrink": shrinkWindow()
         case "fit-min":

@@ -30,6 +30,7 @@ let package = Package(
   name: "Lanes",
   platforms: [.macOS(.v26)],
   dependencies: [
+    .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.6"),
     .package(url: "https://github.com/tree-sitter/swift-tree-sitter", from: "0.25.0"),
     // tags carry no generated parser; this branch does
     .package(url: "https://github.com/alex-pinkus/tree-sitter-swift", branch: "with-generated-files"),
@@ -52,7 +53,7 @@ let package = Package(
     ),
     .executableTarget(
       name: "Lanes",
-      dependencies: ["GitCore", "Highlighting"],
+      dependencies: ["GitCore", "Highlighting", .product(name: "Sparkle", package: "Sparkle")],
       swiftSettings: [.unsafeFlags(["-Xfrontend", "-warn-long-expression-type-checking=300"])]
     ),
     .testTarget(name: "GitCoreTests", dependencies: ["GitCore"]),

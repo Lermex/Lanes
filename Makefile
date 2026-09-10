@@ -12,6 +12,8 @@ endif
 BUILD    := .build/$(CONFIG)
 BUNDLE   := Build/$(APP).app
 CONTENTS := $(BUNDLE)/Contents
+SPARKLE  := .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework
+FRAMEWORK := $(CONTENTS)/Frameworks/Sparkle.framework
 
 .PHONY: build app run test clean icon
 
@@ -28,6 +30,17 @@ app: build
 	plutil -replace CFBundleVersion -string "$(BUILD_NUMBER)" $(CONTENTS)/Info.plist
 	cp -R Resources/Themes $(CONTENTS)/Resources/Themes
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/
+	mkdir -p $(CONTENTS)/Frameworks
+	cp -R $(SPARKLE) $(CONTENTS)/Frameworks/
+	install_name_tool -add_rpath @executable_path/../Frameworks $(CONTENTS)/MacOS/$(APP)
+ifneq ($(SIGN_IDENTITY),-)
+	# Sparkle's helpers must carry our identity for the hardened runtime and notarization
+	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) $(FRAMEWORK)/Versions/B/XPCServices/Installer.xpc
+	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) --preserve-metadata=entitlements $(FRAMEWORK)/Versions/B/XPCServices/Downloader.xpc
+	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) $(FRAMEWORK)/Versions/B/Autoupdate
+	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) $(FRAMEWORK)/Versions/B/Updater.app
+	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) $(FRAMEWORK)
+endif
 	codesign --force --sign "$(SIGN_IDENTITY)" $(SIGN_FLAGS) $(BUNDLE)
 	@echo "built $(BUNDLE)"
 

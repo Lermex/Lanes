@@ -30,5 +30,11 @@
   <string>NSApplication</string>
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.developer-tools</string>
+  <key>SUFeedURL</key>
+  <string>https://github.com/Lermex/Lanes/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>8fzROlZA1qgGotkrD4XHv0ZxTXgqn6kVJTP1fZXELJg=</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
 </dict>
 </plist>

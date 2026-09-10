@@ -81,6 +81,9 @@ struct RepositoryCommands: Commands {
   @FocusedValue(\.windowState) private var windowState
 
   var body: some Commands {
+    CommandGroup(after: .appInfo) {
+      CheckForUpdatesButton()
+    }
     CommandGroup(after: .newItem) {
       Button("Open Repository…") { windowState?.chooseAndOpen() }
         .keyboardShortcut("o", modifiers: .command)
