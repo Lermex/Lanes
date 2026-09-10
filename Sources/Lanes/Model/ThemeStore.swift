@@ -4,22 +4,46 @@ import Highlighting
 import Observation
 import SwiftUI
 
+/// Syntax themes are chosen per appearance, so the diff pane follows the system when it switches
+/// between light and dark on its own.
 @MainActor
 @Observable
 final class ThemeStore {
-  static let systemSelection = "System"
-  static let defaultSelection = "LermexIntellij"
-  private static let selectionKey = "syntaxTheme"
+  static let defaultDarkSelection = "LermexIntellij"
+  static let defaultLightSelection = "LermexIntellij Light"
+  private static let darkKey = "syntaxTheme.dark"
+  private static let lightKey = "syntaxTheme.light"
+  private static let legacyKey = "syntaxTheme"
 
   private(set) var themes: [SyntaxTheme] = []
   private(set) var loadErrors: [String] = []
-  var selection: String {
-    didSet { UserDefaults.standard.set(selection, forKey: Self.selectionKey) }
+  var darkSelection: String {
+    didSet { UserDefaults.standard.set(darkSelection, forKey: Self.darkKey) }
+  }
+  var lightSelection: String {
+    didSet { UserDefaults.standard.set(lightSelection, forKey: Self.lightKey) }
   }
 
   init() {
-    selection = UserDefaults.standard.string(forKey: Self.selectionKey) ?? Self.defaultSelection
+    let defaults = UserDefaults.standard
+    darkSelection = defaults.string(forKey: Self.darkKey) ?? Self.defaultDarkSelection
+    lightSelection = defaults.string(forKey: Self.lightKey) ?? Self.defaultLightSelection
     reload()
+    migrateSingleSelection(defaults)
+  }
+
+  /// Earlier versions stored one theme for both appearances; it keeps applying to the appearance it was made for.
+  private func migrateSingleSelection(_ defaults: UserDefaults) {
+    guard let legacy = defaults.string(forKey: Self.legacyKey) else { return }
+    defaults.removeObject(forKey: Self.legacyKey)
+    guard let theme = themes.first(where: { $0.name == legacy }) else { return }
+    if theme.isDark {
+      darkSelection = legacy
+      defaults.set(legacy, forKey: Self.darkKey)
+    } else {
+      lightSelection = legacy
+      defaults.set(legacy, forKey: Self.lightKey)
+    }
   }
 
   var userThemesDirectory: URL {
@@ -56,8 +80,8 @@ final class ThemeStore {
   }
 
   func theme(isDark: Bool) -> SyntaxTheme {
-    if selection != Self.systemSelection, let chosen = themes.first(where: { $0.name == selection }) { return chosen }
-    return isDark ? .lanesDark : .lanesLight
+    let selection = isDark ? darkSelection : lightSelection
+    return themes.first { $0.name == selection } ?? (isDark ? .lanesDark : .lanesLight)
   }
 
   func openUserThemesDirectory() {
@@ -71,13 +95,12 @@ struct ThemeSettingsView: View {
 
   var body: some View {
     Form {
-      Picker("Syntax theme", selection: $store.selection) {
-        Text("System (Lanes Dark / Light)").tag(ThemeStore.systemSelection)
-        Divider()
-        ForEach(store.themes) { theme in
-          Text("\(theme.name) (\(theme.isDark ? "dark" : "light"))").tag(theme.name)
-        }
-      }
+      themePicker("Dark mode theme", selection: $store.darkSelection, isDark: true)
+      themePicker("Light mode theme", selection: $store.lightSelection, isDark: false)
+      Text("Each applies while the app is in that appearance, so a system set to switch automatically switches the syntax colours too.")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       HStack {
         Button("Open Themes Folder") { store.openUserThemesDirectory() }
         Button("Reload") { store.reload() }
@@ -92,5 +115,18 @@ struct ThemeSettingsView: View {
     }
     .padding(20)
     .frame(width: 520)
+  }
+
+  /// Themes made for the appearance come first; the others are still offered, marked with theirs.
+  private func themePicker(_ title: String, selection: Binding<String>, isDark: Bool) -> some View {
+    Picker(title, selection: selection) {
+      ForEach(store.themes.filter { $0.isDark == isDark }) { theme in
+        Text(theme.name).tag(theme.name)
+      }
+      Divider()
+      ForEach(store.themes.filter { $0.isDark != isDark }) { theme in
+        Text("\(theme.name) (\(theme.isDark ? "dark" : "light"))").tag(theme.name)
+      }
+    }
   }
 }

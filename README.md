@@ -195,9 +195,12 @@ filters apply, and worktrees just work.
 * Rename detection is off for the working copy (a rename shows as delete + add) so that every hunk
   is stageable; commit diffs use rename detection.
 * Syntax colours come from Zed theme files: the app bundles `Resources/Themes/lermex-intellij.json`
-  (selected by default) and also reads `~/Library/Application Support/Lanes/Themes/*.json` and
-  `~/.config/zed/themes/*.json`. Pick one in Settings (⌘,), or "System" for the built-in adaptive
-  pair. A theme's `syntax` map is looked up by scope with fallback (`keyword.return` → `keyword`);
+  (dark) and `lermex-intellij-light.json` (light, IntelliJ Light's palette) and also reads
+  `~/Library/Application Support/Lanes/Themes/*.json` and `~/.config/zed/themes/*.json`. Settings
+  (⌘,) holds one theme for dark mode and one for light mode; whichever matches the app's current
+  appearance is used, so a system that switches appearance on a schedule switches the colours with
+  it. The built-in Lanes Dark / Lanes Light pair is listed too and is the fallback when a chosen
+  theme file is missing. A theme's `syntax` map is looked up by scope with fallback (`keyword.return` → `keyword`);
   the grammars' nvim-style capture names are normalised to Zed's vocabulary first. The theme's
   editor background/foreground, diff hunk backgrounds and line-number colour are applied to the
   diff pane too. TypeScript/TSX queries are composed with JavaScript's, as the grammar's own

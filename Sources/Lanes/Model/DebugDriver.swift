@@ -27,6 +27,22 @@ enum DebugDriver {
           debugLog("reveal \(name): selection=\(String(describing: model.selection)) target=\(model.ref(named: name)?.target.prefix(7) ?? "")")
         case "trunk-on": model.trunkView.enabled = true
         case "trunk-off": model.trunkView.enabled = false
+        case "settings":
+          if let appMenu = NSApplication.shared.mainMenu?.items.first?.submenu,
+            let index = appMenu.items.firstIndex(where: { $0.title.hasPrefix("Settings") })
+          {
+            appMenu.performActionForItem(at: index)
+          } else {
+            debugLog("settings: menu item not found")
+          }
+        case "snapshot-settings":
+          let window = NSApplication.shared.windows.first { $0.title.hasSuffix("Settings") }
+          if window == nil { debugLog("snapshot-settings: no settings window") }
+          WindowSnapshot.capture(window: window)
+        case "light": NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
+        case let step where step.hasPrefix("select-path:"):
+          model.selectedCommitPath = String(step.dropFirst("select-path:".count))
         case "collapse-all": model.collapseAllGroups()
         case let step where step.hasPrefix("expand:"):
           let name = String(step.dropFirst("expand:".count))
