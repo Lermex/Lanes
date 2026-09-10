@@ -145,7 +145,8 @@ filters apply, and worktrees just work.
   Cherry-pick, Revert, Reset the current branch to it (soft, mixed or hard, after a confirmation),
   Copy SHA, Copy Message and Open on GitHub (when origin is a GitHub-style remote). Below those,
   every branch on the commit gets its actions (inline for one branch, a submenu per branch for
-  several) and every tag a Delete Tag item; ref chips carry the same menu for their own ref, and
+  several) and every tag a Delete Tag item, which asks whether to delete it locally only or also on
+  the remotes; ref chips carry the same menu for their own ref, and
   capsule rows offer Expand / Collapse plus the menus of their branches.
 * Right-click a branch in the sidebar for Switch (a remote branch gets a local tracking branch),
   Push (to the upstream's remote, or a chosen remote when the branch has no upstream yet, which

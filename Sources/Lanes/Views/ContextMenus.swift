@@ -109,16 +109,25 @@ struct RepositoryDialogs: ViewModifier {
       .confirmationDialog(
         "Delete “\(model.branchToDelete?.shortName ?? "")”?", isPresented: presenting($model.branchToDelete), titleVisibility: .visible
       ) {
-        Button(model.branchToDelete?.kind == .remoteBranch ? "Delete on Remote" : "Delete", role: .destructive) {
-          guard let ref = model.branchToDelete else { return }
-          Task { if await !model.delete(ref, force: false) { model.branchToForceDelete = ref } }
+        if let tag = model.branchToDelete, tag.kind == .tag {
+          Button("Delete Locally", role: .destructive) { model.deleteTag(tag, on: []) }
+          if model.allRemoteNames.count == 1, let remote = model.allRemoteNames.first {
+            Button("Delete Locally and on \(remote)", role: .destructive) { model.deleteTag(tag, on: [remote]) }
+          } else if !model.allRemoteNames.isEmpty {
+            Button("Delete Everywhere", role: .destructive) { model.deleteTag(tag, on: model.allRemoteNames) }
+          }
+        } else {
+          Button(model.branchToDelete?.kind == .remoteBranch ? "Delete on Remote" : "Delete", role: .destructive) {
+            guard let ref = model.branchToDelete else { return }
+            Task { if await !model.delete(ref, force: false) { model.branchToForceDelete = ref } }
+          }
         }
         Button("Cancel", role: .cancel) {}
       } message: {
         if let remote = model.branchToDelete?.remote {
           Text("The branch is removed from \(remote).")
         } else if model.branchToDelete?.kind == .tag {
-          Text("The tag is removed locally; a copy already pushed to a remote stays there.")
+          Text("Deleting on a remote removes the tag for everyone who fetches from it.")
         } else {
           Text("The local branch is removed. Git refuses if it has unmerged commits; you can force it then.")
         }

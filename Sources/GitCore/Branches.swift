@@ -30,6 +30,15 @@ extension Git {
   public func deleteTag(_ name: String) async throws {
     try await run(["tag", "--delete", name])
   }
+
+  /// Removes the tag from a remote; a tag the remote never had counts as removed.
+  public func deleteRemoteTag(_ name: String, on remote: String) async throws {
+    let arguments = ["push", "--quiet", remote, "--delete", "refs/tags/\(name)"]
+    let output = try await run(arguments, allowedExitCodes: [0, 1])
+    guard output.exitCode == 0 || output.stderr.contains("remote ref does not exist") else {
+      throw GitError(arguments: arguments, exitCode: output.exitCode, stderr: output.stderr)
+    }
+  }
 }
 
 extension GitError {

@@ -626,6 +626,17 @@ final class RepositoryModel {
     originWebURL?.appending(path: "commit/\(commit.sha)")
   }
 
+  /// Deletes a tag locally and, when remotes are given, on each of them.
+  func deleteTag(_ ref: Ref, on remotes: [String]) {
+    guard ref.kind == .tag else { return }
+    perform(forceRefresh: !remotes.isEmpty) {
+      try await self.git.deleteTag(ref.shortName)
+      for remote in remotes {
+        try await self.git.deleteRemoteTag(ref.shortName, on: remote)
+      }
+    }
+  }
+
   /// Deletes a branch, remote branch or tag. Returns false when git refused a branch because it is
   /// not fully merged, so the caller can ask before forcing; every other failure is reported like
   /// any operation.
