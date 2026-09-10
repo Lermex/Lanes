@@ -167,6 +167,9 @@ filters apply, and worktrees just work.
   with an open pull request (View › Show Branches With Pull Requests, ⇧⌘P), adding to the current
   selection unless show-all was on.
 * Fetch (toolbar, or Repository › Fetch, ⇧⌘F) runs `git fetch --all --prune` and refreshes.
+* Git and ssh run without a terminal, so anything they would ask there (a key passphrase, an
+  HTTPS password, a new host key) comes up as a dialog from the bundled `askpass.sh`, and the
+  ssh-agent socket is taken from launchd when the app was started without one in its environment.
 * Open pull requests come from `gh pr list` (GitHub CLI, Homebrew or /usr/local) and show as a
   `#123` badge next to the branch in the sidebar and on graph rows; click to open. Refreshed at
   most once a minute, or on ⌘R. No gh, no GitHub remote, or no auth just means no badges.

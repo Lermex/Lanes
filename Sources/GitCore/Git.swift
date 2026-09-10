@@ -51,8 +51,48 @@ public final class Git: Sendable {
   private func execute(_ arguments: [String], stdin: Data?) async throws -> GitOutput {
     try await Subprocess.run(
       executable, arguments: arguments, workingDirectory: workingDirectory, stdin: stdin,
-      environment: ["GIT_OPTIONAL_LOCKS": "0", "LC_ALL": "en_US.UTF-8", "GIT_TERMINAL_PROMPT": "0"]
+      environment: await Self.subprocessEnvironment()
     )
+  }
+
+  /// git and ssh run without a terminal here, so their questions go to the bundled askpass
+  /// dialog, and the agent socket comes from launchd when the app was started without one.
+  public static func subprocessEnvironment() async -> [String: String] {
+    environment(
+      base: ProcessInfo.processInfo.environment,
+      askpass: Bundle.main.url(forResource: "askpass", withExtension: "sh"),
+      agentSocket: await launchdAgentSocket()
+    )
+  }
+
+  static func environment(base: [String: String], askpass: URL?, agentSocket: String?) -> [String: String] {
+    var environment = base
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
+    environment["LC_ALL"] = "en_US.UTF-8"
+    environment["GIT_TERMINAL_PROMPT"] = "0"
+    if let askpass {
+      environment["GIT_ASKPASS"] = askpass.path
+      environment["SSH_ASKPASS"] = askpass.path
+      environment["SSH_ASKPASS_REQUIRE"] = "force"
+    }
+    if environment["SSH_AUTH_SOCK"] == nil, let agentSocket {
+      environment["SSH_AUTH_SOCK"] = agentSocket
+    }
+    return environment
+  }
+
+  private static let agentSocketLookup = Mutex<String??>(nil)
+
+  private static func launchdAgentSocket() async -> String? {
+    if ProcessInfo.processInfo.environment["SSH_AUTH_SOCK"] != nil { return nil }
+    if let cached = agentSocketLookup.withLock({ $0 }) { return cached }
+    let output = try? await Subprocess.run(
+      URL(fileURLWithPath: "/bin/launchctl"), arguments: ["getenv", "SSH_AUTH_SOCK"], workingDirectory: URL(fileURLWithPath: "/")
+    )
+    let socket = output?.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let result = socket.flatMap { $0.isEmpty ? nil : $0 }
+    agentSocketLookup.withLock { $0 = .some(result) }
+    return result
   }
 }
 

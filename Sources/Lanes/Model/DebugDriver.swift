@@ -1,4 +1,5 @@
 import AppKit
+import GitCore
 import QuartzCore
 import SwiftUI
 
@@ -19,6 +20,10 @@ enum DebugDriver {
         case "history-scroll": await scroll(tableWithRowsClosestTo: model.commits.count, label: "history")
         case "wait": try? await Task.sleep(for: .seconds(2))
         case "check-updates": Updates.controller.updater.checkForUpdates()
+        case "git-env":
+          let environment = await Git.subprocessEnvironment()
+          let keys = ["GIT_ASKPASS", "SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "SSH_AUTH_SOCK", "GIT_TERMINAL_PROMPT"]
+          debugLog("git env: " + keys.map { "\($0)=\(environment[$0].map { $0.hasPrefix("/") ? "<path>" : $0 } ?? "unset")" }.joined(separator: " "))
         case "snapshot": WindowSnapshot.capture()
         case "shrink": shrinkWindow()
         case "fit-min":

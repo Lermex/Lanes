@@ -30,6 +30,7 @@ app: build
 	plutil -replace CFBundleVersion -string "$(BUILD_NUMBER)" $(CONTENTS)/Info.plist
 	cp -R Resources/Themes $(CONTENTS)/Resources/Themes
 	cp Resources/AppIcon.icns $(CONTENTS)/Resources/
+	cp Resources/askpass.sh $(CONTENTS)/Resources/
 	mkdir -p $(CONTENTS)/Frameworks
 	cp -R $(SPARKLE) $(CONTENTS)/Frameworks/
 	install_name_tool -add_rpath @executable_path/../Frameworks $(CONTENTS)/MacOS/$(APP)

@@ -197,3 +197,22 @@ import Testing
     #expect(RemoteWebURL.webURL(for: "/Users/x/repo.git") == nil)
   }
 }
+
+@Suite struct GitEnvironmentTests {
+  @Test func routesPromptsToAskpassAndFillsAgentSocket() {
+    let helper = URL(fileURLWithPath: "/Applications/Lanes.app/Contents/Resources/askpass.sh")
+    let environment = Git.environment(base: ["PATH": "/usr/bin"], askpass: helper, agentSocket: "/tmp/agent.sock")
+    #expect(environment["SSH_ASKPASS"] == helper.path)
+    #expect(environment["GIT_ASKPASS"] == helper.path)
+    #expect(environment["SSH_ASKPASS_REQUIRE"] == "force")
+    #expect(environment["SSH_AUTH_SOCK"] == "/tmp/agent.sock")
+    #expect(environment["GIT_TERMINAL_PROMPT"] == "0")
+    #expect(environment["PATH"] == "/usr/bin")
+  }
+
+  @Test func keepsAnExistingAgentSocket() {
+    let environment = Git.environment(base: ["SSH_AUTH_SOCK": "/existing"], askpass: nil, agentSocket: "/tmp/agent.sock")
+    #expect(environment["SSH_AUTH_SOCK"] == "/existing")
+    #expect(environment["SSH_ASKPASS"] == nil)
+  }
+}
