@@ -133,14 +133,15 @@ filters apply, and worktrees just work.
 * History columns resize by dragging the dividers in the header; widths persist. The graph column
   defaults to fitting every lane; double-click its divider or use View › Fit Graph Column (⇧⌘G)
   to return to that.
-* The sidebar header shows how many branches are in the graph and keeps the controls behind two
-  menus, like Mail's mailbox header: the filter menu (≡, tinted while a filter is on) holds Show
-  all branches, Show tags, Show in graph (None / Local branches / Branches with pull requests) and
-  the Remotes submenu; the more menu (…) holds Sort by.
-* Below the branch sections the sidebar lists Tags (sorted like the branches, with Check Out and
-  Delete Tag in their menu) and Stashes (Apply, Pop, Drop; clicking one shows its diff in the
-  detail pane). Every section collapses with its header chevron and stays collapsed across
-  launches. Stage › Stash Changes (⌃⌘S) stashes the working copy, untracked files included.
+* The sidebar has three groups, Branches, Tags and Stashes, each with a Mail-style header (title
+  and a one-line summary) that collapses the whole group with its chevron and stays collapsed
+  across launches. The Branches header keeps the controls behind two menus: the filter menu (≡,
+  tinted while a filter is on) holds Show all branches, Show tags, Show in graph (None / Local
+  branches / Branches with pull requests) and the Remotes submenu; the more menu (…) holds Sort
+  by. Local branches come first, then each remote's branches under its name.
+* Tags are sorted like the branches and offer Check Out and Delete Tag in their menu; Stashes
+  offer Apply, Pop and Drop, and clicking one shows its diff in the detail pane. Stage › Stash
+  Changes (⌃⌘S) stashes the working copy, untracked files included.
 * Sort by orders every branch section by name, by whether the branch has an open pull request, by
   fork date (the date of the branch's merge base with the trunk), or by last commit. Date orders
   show a relative date on each row. Fork dates come from one `git merge-base` per branch tip,

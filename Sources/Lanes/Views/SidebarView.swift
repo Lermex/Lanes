@@ -8,43 +8,52 @@ struct SidebarView: View {
   @AppStorage("sidebar.collapsed") private var collapsed = ""
 
   var body: some View {
-    VStack(spacing: 0) {
-      SidebarHeader(model: model, sort: $sort)
-      List {
-        Section(isExpanded: expansion(for: "branches")) {
-          ForEach(filtered(model.sortedLocalBranches(by: sort))) { ref in
-            BranchRow(model: model, ref: ref, sort: sort)
-          }
-        } header: {
-          Text("Branches")
+    List {
+      Section(isExpanded: expansion(for: "branches")) {
+        ForEach(filtered(model.sortedLocalBranches(by: sort))) { ref in
+          BranchRow(model: model, ref: ref, sort: sort)
         }
         ForEach(model.remoteNames, id: \.self) { remote in
-          Section(isExpanded: expansion(for: "remote:" + remote)) {
-            ForEach(filtered(model.sortedRemoteBranches(remote, by: sort))) { ref in
-              BranchRow(model: model, ref: ref, sort: sort)
-            }
-          } header: {
-            Text(remote)
+          Text(remote)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.top, 8)
+          ForEach(filtered(model.sortedRemoteBranches(remote, by: sort))) { ref in
+            BranchRow(model: model, ref: ref, sort: sort)
           }
         }
-        Section(isExpanded: expansion(for: "tags")) {
-          ForEach(filtered(model.sortedTags(by: sort))) { ref in
-            TagRow(model: model, ref: ref, sort: sort)
-          }
-        } header: {
-          Text("Tags")
-        }
-        Section(isExpanded: expansion(for: "stashes")) {
-          ForEach(model.stashes.filter { matches($0.title) || matches($0.branch ?? "") }) { stash in
-            StashRow(model: model, stash: stash)
-          }
-        } header: {
-          Text("Stashes")
+      } header: {
+        SidebarGroupHeader(title: "Branches", summary: branchSummary) {
+          SidebarBranchControls(model: model, sort: $sort)
         }
       }
-      .listStyle(.sidebar)
+      Section(isExpanded: expansion(for: "tags")) {
+        ForEach(filtered(model.sortedTags(by: sort))) { ref in
+          TagRow(model: model, ref: ref, sort: sort)
+        }
+      } header: {
+        SidebarGroupHeader(title: "Tags", summary: count(model.tags.count, "tag")) { EmptyView() }
+      }
+      Section(isExpanded: expansion(for: "stashes")) {
+        ForEach(model.stashes.filter { matches($0.title) || matches($0.branch ?? "") }) { stash in
+          StashRow(model: model, stash: stash)
+        }
+      } header: {
+        SidebarGroupHeader(title: "Stashes", summary: count(model.stashes.count, "stash", plural: "stashes")) { EmptyView() }
+      }
     }
+    .listStyle(.sidebar)
     .searchable(text: $query, placement: .sidebar, prompt: "Filter")
+  }
+
+  private var branchSummary: String {
+    let branches = model.localBranches + model.remoteNames.flatMap { model.remoteBranches($0) }
+    if model.filter.showAll { return "All \(branches.count) in graph" }
+    return "\(branches.filter(model.filter.isShown).count) of \(branches.count) in graph"
+  }
+
+  private func count(_ number: Int, _ noun: String, plural: String? = nil) -> String {
+    number == 0 ? "None" : "\(number) \(number == 1 ? noun : (plural ?? noun + "s"))"
   }
 
   private func matches(_ text: String) -> Bool {
@@ -60,7 +69,7 @@ struct SidebarView: View {
     Set(collapsed.split(separator: ",").map(String.init))
   }
 
-  /// Sections stay collapsed across launches; ids are "branches", "remote:<name>", "tags", "stashes".
+  /// Groups stay collapsed across launches; ids are "branches", "tags" and "stashes".
   private func expansion(for id: String) -> Binding<Bool> {
     Binding(
       get: { !collapsedSections.contains(id) },
