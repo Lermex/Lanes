@@ -178,6 +178,9 @@ import Testing
     }
     try await repo.git.deleteBranch("renamed", force: true)
     try await repo.git.deleteRemoteBranch("renamed", on: "origin")
+    try await repo.git.createTag("v1", at: "master")
+    #expect(try await repo.git.refs().contains { $0.shortName == "v1" })
+    try await repo.git.deleteTag("v1")
     let remaining = try await repo.git.refs()
     #expect(remaining.map(\.shortName) == ["master"])
   }

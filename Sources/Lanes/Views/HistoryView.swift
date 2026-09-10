@@ -209,17 +209,18 @@ private struct HistoryRow: View {
   @ViewBuilder
   private var rowMenu: some View {
     switch item.kind {
-    case .commit(let commit, _, _, _):
+    case .commit(let commit, _, _, let hidden):
       CommitMenuItems(model: model, commit: commit)
+      let names = commit.decorations.filter { model.isDecorationVisible($0) && !hidden.contains($0) && $0 != "HEAD" }
+      if !names.isEmpty {
+        Divider()
+        RefMenuItems(model: model, names: names)
+      }
     case .capsule(let group, _):
       let expanded = model.trunkView.expanded.contains(group.id)
       Button(expanded ? "Collapse" : "Expand") { model.toggleGroup(group.id) }
-      if let ref = group.names.lazy.compactMap({ model.ref(named: $0) }).first(where: { $0.kind == .localBranch })
-        ?? group.names.lazy.compactMap({ model.ref(named: $0) }).first
-      {
-        Divider()
-        BranchMenuItems(model: model, ref: ref)
-      }
+      Divider()
+      RefMenuItems(model: model, names: group.names)
     case .workingCopy:
       EmptyView()
     }
@@ -486,11 +487,11 @@ struct GraphCell: View {
 }
 
 extension View {
-  /// Adds the branch context menu when `name` is a branch; tags and HEAD get none.
+  /// Adds the ref's context menu to a chip; HEAD and `<remote>/HEAD` get none.
   @ViewBuilder
   func branchMenu(model: RepositoryModel, name: String) -> some View {
-    if let ref = model.ref(named: name), ref.kind != .tag {
-      contextMenu { BranchMenuItems(model: model, ref: ref) }
+    if model.ref(named: name) != nil, !name.hasSuffix("HEAD") {
+      contextMenu { RefMenuItems(model: model, names: [name]) }
     } else {
       self
     }

@@ -26,6 +26,10 @@ extension Git {
   public func deleteRemoteBranch(_ name: String, on remote: String) async throws {
     try await run(["push", "--quiet", remote, "--delete", name])
   }
+
+  public func deleteTag(_ name: String) async throws {
+    try await run(["tag", "--delete", name])
+  }
 }
 
 extension GitError {

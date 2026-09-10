@@ -21,13 +21,41 @@ struct BranchMenuItems: View {
           }
         }
       }
-      Button("Rename…") { model.branchToRename = ref }
+      Button("Rename \(ref.branchName)…") { model.branchToRename = ref }
     }
-    Button(ref.remote.map { "Delete from \($0)…" } ?? "Delete…", role: .destructive) { model.branchToDelete = ref }
-      .disabled(ref.isHead)
+    Button(ref.remote.map { "Delete \(ref.branchName) from \($0)…" } ?? "Delete \(ref.branchName)…", role: .destructive) {
+      model.branchToDelete = ref
+    }
+    .disabled(ref.isHead)
     Divider()
     Button("Use as Trunk") { model.setTrunk(ref) }
       .disabled(model.trunkRef?.fullName == ref.fullName)
+  }
+}
+
+/// Menu items for the refs sitting on a commit or capsule: a lone branch's items inline, several
+/// branches as submenus named after them, and a delete item per tag.
+struct RefMenuItems: View {
+  let model: RepositoryModel
+  let names: [String]
+
+  private var refs: [Ref] {
+    names.compactMap { model.ref(named: $0) }.filter { !$0.branchName.hasSuffix("HEAD") }
+  }
+
+  var body: some View {
+    let branches = refs.filter { $0.kind != .tag }
+    let tags = refs.filter { $0.kind == .tag }
+    if branches.count == 1, let branch = branches.first {
+      BranchMenuItems(model: model, ref: branch)
+    } else {
+      ForEach(branches) { branch in
+        Menu(branch.shortName) { BranchMenuItems(model: model, ref: branch) }
+      }
+    }
+    ForEach(tags) { tag in
+      Button("Delete Tag \(tag.shortName)…", role: .destructive) { model.branchToDelete = tag }
+    }
   }
 }
 
@@ -83,12 +111,14 @@ struct RepositoryDialogs: ViewModifier {
       ) {
         Button(model.branchToDelete?.kind == .remoteBranch ? "Delete on Remote" : "Delete", role: .destructive) {
           guard let ref = model.branchToDelete else { return }
-          Task { if await !model.deleteBranch(ref, force: false) { model.branchToForceDelete = ref } }
+          Task { if await !model.delete(ref, force: false) { model.branchToForceDelete = ref } }
         }
         Button("Cancel", role: .cancel) {}
       } message: {
         if let remote = model.branchToDelete?.remote {
           Text("The branch is removed from \(remote).")
+        } else if model.branchToDelete?.kind == .tag {
+          Text("The tag is removed locally; a copy already pushed to a remote stays there.")
         } else {
           Text("The local branch is removed. Git refuses if it has unmerged commits; you can force it then.")
         }
@@ -99,7 +129,7 @@ struct RepositoryDialogs: ViewModifier {
       ) {
         Button("Delete Anyway", role: .destructive) {
           guard let ref = model.branchToForceDelete else { return }
-          Task { _ = await model.deleteBranch(ref, force: true) }
+          Task { _ = await model.delete(ref, force: true) }
         }
         Button("Cancel", role: .cancel) {}
       } message: {

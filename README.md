@@ -143,8 +143,10 @@ filters apply, and worktrees just work.
   computed in the background after each refresh and remembered per tip.
 * Right-click a commit in the history for Check Out Commit (detached), New Branch Here, Tag,
   Cherry-pick, Revert, Reset the current branch to it (soft, mixed or hard, after a confirmation),
-  Copy SHA, Copy Message and Open on GitHub (when origin is a GitHub-style remote). Capsule rows
-  and ref chips carry the branch menu below; capsules also offer Expand / Collapse.
+  Copy SHA, Copy Message and Open on GitHub (when origin is a GitHub-style remote). Below those,
+  every branch on the commit gets its actions (inline for one branch, a submenu per branch for
+  several) and every tag a Delete Tag item; ref chips carry the same menu for their own ref, and
+  capsule rows offer Expand / Collapse plus the menus of their branches.
 * Right-click a branch in the sidebar for Switch (a remote branch gets a local tracking branch),
   Push (to the upstream's remote, or a chosen remote when the branch has no upstream yet, which
   then sets it), Rename, Delete, and Use as Trunk. Deleting asks first; if git refuses because the

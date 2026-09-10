@@ -626,9 +626,10 @@ final class RepositoryModel {
     originWebURL?.appending(path: "commit/\(commit.sha)")
   }
 
-  /// Returns false when git refused because the branch is not fully merged, so the caller can ask
-  /// before forcing; every other failure is reported like any operation.
-  func deleteBranch(_ ref: Ref, force: Bool) async -> Bool {
+  /// Deletes a branch, remote branch or tag. Returns false when git refused a branch because it is
+  /// not fully merged, so the caller can ask before forcing; every other failure is reported like
+  /// any operation.
+  func delete(_ ref: Ref, force: Bool) async -> Bool {
     guard !ref.isHead else { return true }
     isBusy = true
     defer { isBusy = false }
@@ -636,7 +637,7 @@ final class RepositoryModel {
       switch ref.kind {
       case .localBranch: try await git.deleteBranch(ref.shortName, force: force)
       case .remoteBranch: if let remote = ref.remote { try await git.deleteRemoteBranch(ref.branchName, on: remote) }
-      case .tag: return true
+      case .tag: try await git.deleteTag(ref.shortName)
       }
       filter.selected.remove(ref.fullName)
       await refresh(force: ref.kind == .remoteBranch)
