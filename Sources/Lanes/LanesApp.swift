@@ -79,6 +79,7 @@ extension FocusedValues {
 
 struct RepositoryCommands: Commands {
   @FocusedValue(\.windowState) private var windowState
+  @AppStorage("trunkCommitChains") private var showsCommitChains = true
 
   var body: some Commands {
     CommandGroup(after: .appInfo) {
@@ -104,6 +105,7 @@ struct RepositoryCommands: Commands {
         .disabled(windowState?.model == nil)
       Button("Expand All Branches") { windowState?.model?.expandAllGroups() }
         .disabled(windowState?.model?.isTrunkViewActive != true)
+      Toggle("Show Commits in Collapsed Branches", isOn: $showsCommitChains)
       Button("Collapse All Branches") { windowState?.model?.collapseAllGroups() }
         .disabled(windowState?.model?.isTrunkViewActive != true)
       Divider()

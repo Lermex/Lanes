@@ -476,7 +476,7 @@ final class RepositoryModel {
   func reveal(_ ref: Ref) {
     mode = .history
     if ref.kind != .tag, isTrunkViewActive, let group = trunkLayout?.groups.first(where: { $0.names.contains(ref.shortName) }) {
-      selection = .branch(group.id)
+      selection = trunkView.expanded.contains(group.id) && !group.commits.isEmpty ? .commit(group.tipSha) : .branch(group.id)
       return
     }
     pendingReveal = ref.target

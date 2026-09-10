@@ -64,7 +64,11 @@ import Testing
   @Test func lanesStayLocalAndBendIntoTheForkCommit() throws {
     let layout = try #require(TrunkLayout.compute(commits: commits, trunkSha: "t3", tips: tips, expanded: ["refs/heads/feature"]))
     let rowKinds = layout.rows.map(\.kind)
-    #expect(rowKinds.count == 10)
+    #expect(rowKinds.count == 9)
+    // an expanded group is its commits with the tip on top; the capsule row only stands in while collapsed
+    let featureRows = rowKinds.compactMap { if case .branchCommit(let c, "refs/heads/feature") = $0 { return c.sha } else { return nil } }
+    #expect(featureRows == ["f2", "f1"])
+    #expect(!rowKinds.contains { if case .capsule(let g) = $0 { return g.id == "refs/heads/feature" } else { return false } })
     // capsule blocks stacked above the fork commit t2 share lane 1; each joins the trunk at the end of its block
     let capsuleLanes = layout.rows.filter { if case .capsule(let g) = $0.kind { return g.forkSha == "t2" } else { return false } }.map(\.graph.nodeLane)
     #expect(Set(capsuleLanes) == [1])

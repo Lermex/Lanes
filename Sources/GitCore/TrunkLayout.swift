@@ -191,13 +191,15 @@ public struct TrunkLayout: Sendable, Hashable {
       var groupStart: [String: Int] = [:]
       var groupEnd: [String: Int] = [:]
       var trunkRowIndex: [String: Int] = [:]
-      // a block is the capsule row plus its expanded commits; its line joins the trunk right below the block,
-      // so blocks stacked above one fork commit share a lane, while merged branches span from their merge commit
+      // a block is a collapsed group's capsule row, or an expanded group's commits with the tip on top; its
+      // line joins the trunk right below the block, so blocks stacked above one fork commit share a lane,
+      // while merged branches span from their merge commit
       func emit(_ group: BranchGroup) {
         groupStart[group.id] = kinds.count
-        kinds.append(.capsule(group))
-        if expanded.contains(group.id) {
+        if expanded.contains(group.id), !group.commits.isEmpty {
           kinds.append(contentsOf: group.commits.map { .branchCommit($0, groupID: group.id) })
+        } else {
+          kinds.append(.capsule(group))
         }
         groupEnd[group.id] = kinds.count
       }

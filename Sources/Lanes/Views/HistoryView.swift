@@ -5,7 +5,8 @@ struct HistoryItem: Identifiable {
   enum Kind {
     case workingCopy(count: Int, lane: Int)
     case commit(Commit, row: GraphRow?, continuesFromWorkingCopy: Bool, hiddenDecorations: Set<String> = [])
-    case capsule(BranchGroup, row: GraphRow)
+    /// `tip` is set when the group is expanded: the row is its latest commit and doubles as the header
+    case capsule(BranchGroup, row: GraphRow, tip: Commit? = nil)
   }
 
   let id: HistorySelection
@@ -175,6 +176,7 @@ private struct HistoryRow: View {
   let widths: RowWidths
   let model: RepositoryModel
   @Binding var measuredWidth: CGFloat?
+  @AppStorage("trunkCommitChains") private var showsCommitChains = true
 
   var body: some View {
     content
@@ -216,11 +218,16 @@ private struct HistoryRow: View {
         Divider()
         RefMenuItems(model: model, names: names)
       }
-    case .capsule(let group, _):
+    case .capsule(let group, _, let tip):
       let expanded = model.trunkView.expanded.contains(group.id)
       Button(expanded ? "Collapse" : "Expand") { model.toggleGroup(group.id) }
+        .disabled(group.commits.isEmpty)
       Divider()
       RefMenuItems(model: model, names: group.names)
+      if let tip {
+        Divider()
+        CommitMenuItems(model: model, commit: tip)
+      }
     case .workingCopy:
       EmptyView()
     }
@@ -235,8 +242,11 @@ private struct HistoryRow: View {
       GraphCell(row: nil, workingCopyLane: lane, continuesFromWorkingCopy: false)
     case .commit(_, let row, let continues, _):
       GraphCell(row: row, workingCopyLane: nil, continuesFromWorkingCopy: continues)
-    case .capsule(_, let row):
-      GraphCell(row: row, workingCopyLane: nil, continuesFromWorkingCopy: false, nodeStyle: .capsule)
+    case .capsule(let group, let row, let tip):
+      GraphCell(
+        row: row, workingCopyLane: nil, continuesFromWorkingCopy: false,
+        nodeStyle: tip == nil ? .capsule : .commit, chain: tip == nil && showsCommitChains ? group.commits.count : 0
+      )
     }
   }
 
@@ -260,15 +270,15 @@ private struct HistoryRow: View {
         }
         Text(commit.subject).lineLimit(1)
       }
-    case .capsule(let group, _):
-      CapsuleDescription(group: group, model: model)
+    case .capsule(let group, _, let tip):
+      CapsuleDescription(group: group, tip: tip, model: model)
     }
   }
 
   private var rowCommit: Commit? {
     switch item.kind {
     case .commit(let commit, _, _, _): commit
-    case .capsule(let group, _): group.tip
+    case .capsule(let group, _, _): group.tip
     case .workingCopy: nil
     }
   }
@@ -295,9 +305,11 @@ private struct HistoryRow: View {
 
 private struct CapsuleDescription: View {
   let group: BranchGroup
+  /// the latest commit when the group is expanded and this row stands for it
+  let tip: Commit?
   let model: RepositoryModel
 
-  private var isExpanded: Bool { model.trunkView.expanded.contains(group.id) }
+  private var isExpanded: Bool { tip != nil }
 
   var body: some View {
     HStack(spacing: 4) {
@@ -309,6 +321,7 @@ private struct CapsuleDescription: View {
       }
       .buttonStyle(.plain)
       .foregroundStyle(.secondary)
+      .disabled(group.commits.isEmpty)
       .accessibilityLabel(isExpanded ? "Collapse \(group.names.first ?? "")" : "Expand \(group.names.first ?? "")")
       ForEach(group.names, id: \.self) { name in
         RefChip(name: name, kind: group.isMerged ? nil : model.refKinds[name], isHead: false)
@@ -318,9 +331,14 @@ private struct CapsuleDescription: View {
       if let pullRequest = group.names.lazy.compactMap({ model.pullRequest(forBranchName: $0) }).first {
         PullRequestBadge(pullRequest: pullRequest)
       }
-      Text(summary).foregroundStyle(.secondary).lineLimit(1).fixedSize().layoutPriority(1)
-      if !isExpanded, let tip = group.tip {
-        Text(tip.subject).lineLimit(1).foregroundStyle(.tertiary)
+      if let tip {
+        Text(tip.subject).lineLimit(1)
+        Text(summary).foregroundStyle(.tertiary).lineLimit(1).fixedSize().layoutPriority(1)
+      } else {
+        Text(summary).foregroundStyle(.secondary).lineLimit(1).fixedSize().layoutPriority(1)
+        if let tip = group.tip {
+          Text(tip.subject).lineLimit(1).foregroundStyle(.tertiary)
+        }
       }
     }
   }
@@ -362,13 +380,17 @@ extension HistoryView {
       case .trunk(let commit):
         HistoryItem(id: .commit(commit.sha), kind: .commit(commit, row: row.graph, continuesFromWorkingCopy: false))
       case .branchCommit(let commit, let groupID):
-        HistoryItem(
-          id: .commit(commit.sha),
-          kind: .commit(
-            commit, row: row.graph, continuesFromWorkingCopy: false,
-            hiddenDecorations: Set(layout.group(id: groupID)?.names ?? [])
+        if let group = layout.group(id: groupID), group.tipSha == commit.sha {
+          HistoryItem(id: .commit(commit.sha), kind: .capsule(group, row: row.graph, tip: commit))
+        } else {
+          HistoryItem(
+            id: .commit(commit.sha),
+            kind: .commit(
+              commit, row: row.graph, continuesFromWorkingCopy: false,
+              hiddenDecorations: Set(layout.group(id: groupID)?.names ?? [])
+            )
           )
-        )
+        }
       case .capsule(let group):
         HistoryItem(id: .branch(group.id), kind: .capsule(group, row: row.graph))
       }
@@ -414,6 +436,8 @@ struct GraphCell: View {
   let workingCopyLane: Int?
   let continuesFromWorkingCopy: Bool
   var nodeStyle: GraphNodeStyle = .commit
+  /// commits of a collapsed branch, drawn as a chain growing to the right and ending in the tip
+  var chain: Int = 0
 
   var body: some View {
     Canvas(rendersAsynchronously: false) { context, size in
@@ -467,13 +491,47 @@ struct GraphCell: View {
       context.stroke(path, with: .color(.secondary), style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
     }
     let center = CGPoint(x: x(row.nodeLane), y: midY)
+    let color = Theme.graphColor(row.nodeColorIndex)
+    if nodeStyle == .capsule, chain > 1 {
+      drawChain(from: center, count: chain, color: color, in: &context, width: size.width)
+      return
+    }
     let dot: Path =
       switch nodeStyle {
       case .commit: Path(ellipseIn: CGRect(x: center.x - 4.5, y: center.y - 4.5, width: 9, height: 9))
       case .capsule: Path(roundedRect: CGRect(x: center.x - 5.5, y: center.y - 5.5, width: 11, height: 11), cornerRadius: 3)
       }
-    context.fill(dot, with: .color(Theme.graphColor(row.nodeColorIndex)))
+    context.fill(dot, with: .color(color))
     context.stroke(dot, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
+  }
+
+  /// The branch's commits side by side: oldest where the line meets the trunk, the tip at the right end;
+  /// when the column is too narrow the middle is elided.
+  private func drawChain(from start: CGPoint, count: Int, color: Color, in context: inout GraphicsContext, width: CGFloat) {
+    let step: CGFloat = 9
+    let capacity = max(2, Int((width - start.x - 8) / step) + 1)
+    let shown = min(count, capacity)
+    let elided = count > capacity
+    let end = CGPoint(x: start.x + CGFloat(shown - 1) * step, y: start.y)
+    var line = Path()
+    line.move(to: start)
+    line.addLine(to: end)
+    context.stroke(line, with: .color(color), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+    for index in 0..<(shown - 1) {
+      let point = CGPoint(x: start.x + CGFloat(index) * step, y: start.y)
+      if elided, index == shown - 2 {
+        for offset in [-2.5, 0, 2.5] as [CGFloat] {
+          context.fill(Path(ellipseIn: CGRect(x: point.x + offset - 0.75, y: point.y - 0.75, width: 1.5, height: 1.5)), with: .color(.white))
+        }
+        continue
+      }
+      let dot = Path(ellipseIn: CGRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6))
+      context.fill(dot, with: .color(color))
+      context.stroke(dot, with: .color(.white.opacity(0.9)), lineWidth: 1)
+    }
+    let tip = Path(roundedRect: CGRect(x: end.x - 5.5, y: end.y - 5.5, width: 11, height: 11), cornerRadius: 3)
+    context.fill(tip, with: .color(color))
+    context.stroke(tip, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
   }
 
   private func drawWorkingCopy(lane: Int, in context: inout GraphicsContext, size: CGSize, midY: CGFloat) {

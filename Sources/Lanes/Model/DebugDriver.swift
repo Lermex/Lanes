@@ -25,6 +25,11 @@ enum DebugDriver {
           if let ref = model.ref(named: name) { model.reveal(ref) } else { debugLog("reveal: no ref named \(name)") }
           try? await Task.sleep(for: .seconds(2))
           debugLog("reveal \(name): selection=\(String(describing: model.selection)) target=\(model.ref(named: name)?.target.prefix(7) ?? "")")
+        case "trunk-on": model.trunkView.enabled = true
+        case "collapse-all": model.collapseAllGroups()
+        case let step where step.hasPrefix("expand:"):
+          let name = String(step.dropFirst("expand:".count))
+          if let group = model.trunkLayout?.groups.first(where: { $0.names.contains(name) }) { model.toggleGroup(group.id) }
         case "select-stash":
           if let stash = model.stashes.first { model.mode = .history; model.selection = .stash(stash.commit.sha) }
         case "git-env":

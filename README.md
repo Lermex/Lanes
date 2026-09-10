@@ -163,9 +163,12 @@ filters apply, and worktrees just work.
   graph revisions, and the ref chips. This is stored with the branch filter.
 * Trunk view (toolbar toggle, View › Trunk View, ⌥⌘T) draws only the trunk as a lane and collapses
   every other branch into a capsule row placed directly above the trunk commit it forked from, with
-  its refs, PR badge, commit count and how far behind the trunk it is. The chevron (or a
-  double-click) expands a capsule into its commits, which render inline in the side lane without
-  moving anything else. Branches merged into the trunk appear the same way, spanning from their
+  its refs, PR badge, commit count and how far behind the trunk it is; the graph draws the
+  collapsed branch's commits as a chain growing to the right, oldest at the trunk and the tip at
+  the end, eliding the middle when the column is narrow (View › Show Commits in Collapsed Branches
+  turns the chains off). The chevron expands a capsule into its commits, which render inline in
+  the side lane without moving anything else; the latest commit is then the top row and carries
+  the refs, chevron and summary, so a three-commit branch takes three rows. Branches merged into the trunk appear the same way, spanning from their
   merge commit. The trunk defaults to `origin/master` (or `origin/main`), can be changed with
   "Use as Trunk" in a branch's context menu, and never follows HEAD; checking out a branch expands
   its capsule instead. Trunk choice and expansion state are stored per repository.
