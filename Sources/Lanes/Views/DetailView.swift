@@ -20,6 +20,12 @@ struct DetailView: View {
       } else {
         placeholder("Branch not in view")
       }
+    case .stash(let sha):
+      if let stash = model.stashes.first(where: { $0.commit.sha == sha }) {
+        CommitDetailView(model: model, commit: stash.commit)
+      } else {
+        placeholder("Stash not found")
+      }
     case nil:
       placeholder("Select a commit")
     }

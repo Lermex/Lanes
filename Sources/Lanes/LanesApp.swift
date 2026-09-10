@@ -136,6 +136,10 @@ struct RepositoryCommands: Commands {
       Button("Unstage All") { windowState?.model?.unstageAll() }
         .keyboardShortcut("u", modifiers: [.command, .shift])
         .disabled(windowState?.model == nil)
+      Divider()
+      Button("Stash Changes") { windowState?.model?.stashChanges() }
+        .keyboardShortcut("s", modifiers: [.command, .control])
+        .disabled(windowState?.model?.status.isClean ?? true)
     }
   }
 }

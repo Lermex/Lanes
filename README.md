@@ -137,6 +137,10 @@ filters apply, and worktrees just work.
   menus, like Mail's mailbox header: the filter menu (≡, tinted while a filter is on) holds Show
   all branches, Show tags, Show in graph (None / Local branches / Branches with pull requests) and
   the Remotes submenu; the more menu (…) holds Sort by.
+* Below the branch sections the sidebar lists Tags (sorted like the branches, with Check Out and
+  Delete Tag in their menu) and Stashes (Apply, Pop, Drop; clicking one shows its diff in the
+  detail pane). Every section collapses with its header chevron and stays collapsed across
+  launches. Stage › Stash Changes (⌃⌘S) stashes the working copy, untracked files included.
 * Sort by orders every branch section by name, by whether the branch has an open pull request, by
   fork date (the date of the branch's merge base with the trunk), or by last commit. Date orders
   show a relative date on each row. Fork dates come from one `git merge-base` per branch tip,

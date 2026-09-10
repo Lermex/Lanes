@@ -7,6 +7,7 @@ enum HistorySelection: Hashable {
   case workingCopy
   case commit(String)
   case branch(String)
+  case stash(String)
 }
 
 enum ViewMode: Hashable {
@@ -61,6 +62,8 @@ final class RepositoryModel {
   private(set) var branchesWithPullRequests: [Ref] = []
   @ObservationIgnored private var sortedBranchesCache: [String: [Ref]] = [:]
   private(set) var trunkLayout: TrunkLayout?
+  private(set) var stashes: [Stash] = []
+  var stashToDrop: Stash?
   var errorMessage: String?
   var mode: ViewMode = .history
 
@@ -219,6 +222,10 @@ final class RepositoryModel {
 
   func sortedLocalBranches(by sort: BranchSort) -> [Ref] {
     cachedSort("local \(sort.rawValue)") { sort.sorted(localBranches, pullRequest: pullRequest(for:), forkDate: { forkDates[$0.fullName] }) }
+  }
+
+  func sortedTags(by sort: BranchSort) -> [Ref] {
+    cachedSort("tags \(sort.rawValue)") { sort.sorted(tags, pullRequest: { _ in nil }, forkDate: { _ in nil }) }
   }
 
   func sortedRemoteBranches(_ remote: String, by sort: BranchSort) -> [Ref] {
@@ -382,8 +389,10 @@ final class RepositoryModel {
       async let status = git.status()
       async let unstaged = git.unstagedDiff()
       async let staged = git.stagedDiff()
+      async let stashes = git.stashes()
       self.refs = try await refs
       self.head = try await head
+      self.stashes = try await stashes
       if originWebURL == nil, let remote = try await git.remoteURL("origin") { originWebURL = RemoteWebURL.webURL(for: remote) }
       self.status = try await status
       unstagedDiffs = Self.byPath(try await unstaged)
@@ -453,6 +462,9 @@ final class RepositoryModel {
 
   private func reconcileSelection() {
     if selection == nil {
+      selection = status.isClean ? commits.first.map { .commit($0.sha) } : .workingCopy
+    }
+    if case .stash(let sha) = selection, !stashes.contains(where: { $0.commit.sha == sha }) {
       selection = status.isClean ? commits.first.map { .commit($0.sha) } : .workingCopy
     }
     if selection == .workingCopy, status.isClean {
@@ -589,6 +601,21 @@ final class RepositoryModel {
       if self.filter.selected.remove(ref.fullName) != nil { self.filter.selected.insert(renamed) }
       if self.trunkView.trunk == ref.fullName { self.trunkView.trunk = renamed }
     }
+  }
+
+  // MARK: Stashes
+
+  func stashChanges() {
+    guard !status.isClean else { return }
+    perform { try await self.git.stashChanges(message: nil) }
+  }
+
+  func applyStash(_ stash: Stash) { perform { try await self.git.applyStash(stash.index) } }
+  func popStash(_ stash: Stash) { perform { try await self.git.popStash(stash.index) } }
+  func dropStash(_ stash: Stash) { perform { try await self.git.dropStash(stash.index) } }
+
+  func checkoutRef(_ ref: Ref) {
+    perform { try await self.git.checkoutDetached(ref.shortName) }
   }
 
   // MARK: Commit actions

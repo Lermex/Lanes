@@ -219,6 +219,27 @@ import Testing
     #expect(try await repo.git.remoteURL("nope") == nil)
   }
 
+  @Test func stashOperations() async throws {
+    let repo = try await makeRepo()
+    try write(repo.url, "a.txt", numbered(1...30, changing: [3]))
+    try await repo.git.stashChanges(message: "work in progress")
+    #expect(try await repo.git.status().isClean)
+    let stashes = try await repo.git.stashes()
+    #expect(stashes.map(\.index) == [0])
+    #expect(stashes.first?.title == "work in progress")
+    #expect(stashes.first?.branch == "master")
+    try await repo.git.applyStash(0)
+    #expect(!(try await repo.git.status().isClean))
+    try await repo.git.run(["checkout", "--", "a.txt"])
+    try await repo.git.popStash(0)
+    #expect(try await repo.git.stashes().isEmpty)
+    #expect(!(try await repo.git.status().isClean))
+    try await repo.git.stashChanges(message: nil)
+    #expect(try await repo.git.stashes().first?.title.hasPrefix("") == true)
+    try await repo.git.dropStash(0)
+    #expect(try await repo.git.stashes().isEmpty)
+  }
+
   @Test func refsHeadAndDiscovery() async throws {
     let repo = try await makeRepo()
     try await repo.git.run(["branch", "feature"])

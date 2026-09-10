@@ -53,7 +53,7 @@ enum DebugDriver {
 
   private static func showSidebarWindow(model: RepositoryModel) {
     let window = NSWindow(
-      contentRect: NSRect(x: 200, y: 200, width: 300, height: 720), styleMask: [.titled], backing: .buffered, defer: false
+      contentRect: NSRect(x: 200, y: 100, width: 300, height: 1000), styleMask: [.titled], backing: .buffered, defer: false
     )
     window.title = "Sidebar preview"
     window.contentView = NSHostingView(rootView: SidebarView(model: model))

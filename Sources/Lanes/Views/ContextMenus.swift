@@ -54,6 +54,8 @@ struct RefMenuItems: View {
       }
     }
     ForEach(tags) { tag in
+      Button("Check Out \(tag.shortName)") { model.checkoutRef(tag) }
+        .disabled(model.head.sha == tag.target && model.head.isDetached)
       Button("Delete Tag \(tag.shortName)…", role: .destructive) { model.branchToDelete = tag }
     }
   }
@@ -189,6 +191,16 @@ struct RepositoryDialogs: ViewModifier {
         Button("Cancel", role: .cancel) {}
       } message: {
         Text("Moves \(model.head.branch ?? "HEAD") to “\(model.commitToResetTo?.subject ?? "")”. Later commits stay reachable only through the reflog.")
+      }
+      .confirmationDialog(
+        "Drop “\(model.stashToDrop?.title ?? "")”?", isPresented: presenting($model.stashToDrop), titleVisibility: .visible
+      ) {
+        Button("Drop", role: .destructive) {
+          if let stash = model.stashToDrop { model.dropStash(stash) }
+        }
+        Button("Cancel", role: .cancel) {}
+      } message: {
+        Text("The stash's changes are lost unless they were applied somewhere.")
       }
       .onChange(of: model.branchToRename) { _, ref in if let ref { newName = ref.shortName } }
       .onChange(of: model.commitForNewBranch) { _, commit in if commit != nil { newName = "" } }
