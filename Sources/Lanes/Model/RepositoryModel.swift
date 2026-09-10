@@ -279,6 +279,10 @@ final class RepositoryModel {
     filter = updated
   }
 
+  func isBranchHead(_ commit: Commit) -> Bool {
+    commit.decorations.contains { isDecorationVisible($0) && [.localBranch, .remoteBranch].contains(refKinds[$0]) }
+  }
+
   func isDecorationVisible(_ decoration: String) -> Bool {
     let remote = allRemoteNames.first { decoration.hasPrefix($0 + "/") }
     guard let remote else { return true }

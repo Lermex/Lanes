@@ -26,6 +26,7 @@ enum DebugDriver {
           try? await Task.sleep(for: .seconds(2))
           debugLog("reveal \(name): selection=\(String(describing: model.selection)) target=\(model.ref(named: name)?.target.prefix(7) ?? "")")
         case "trunk-on": model.trunkView.enabled = true
+        case "trunk-off": model.trunkView.enabled = false
         case "collapse-all": model.collapseAllGroups()
         case let step where step.hasPrefix("expand:"):
           let name = String(step.dropFirst("expand:".count))

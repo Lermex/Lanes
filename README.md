@@ -130,6 +130,9 @@ filters apply, and worktrees just work.
 * The window's minimum size is what the staging area needs (about 930 pt wide with the sidebar),
   so it fits a 13-inch screen; on narrow windows the history columns scale down together so the
   description keeps at least 200 pt, and a fitted graph column takes at most 40 % of the list.
+* In the graph, a commit that a branch points at is a rounded square; every other commit is a
+  circle. This holds in both views, so a collapsed chain in the trunk view ends in a square only
+  while a branch still points at its tip (merged-and-deleted or orphan groups end in a circle).
 * History columns resize by dragging the dividers in the header; widths persist. The graph column
   defaults to fitting every lane; double-click its divider or use View › Fit Graph Column (⇧⌘G)
   to return to that.
@@ -168,8 +171,8 @@ filters apply, and worktrees just work.
   the end, eliding the middle when the column is narrow (View › Show Commits in Collapsed Branches
   turns the chains off). The chevron expands a capsule into its commits, which render inline in
   the side lane without moving anything else; the latest commit is then the top row and carries
-  the refs, chevron and summary, so a three-commit branch takes three rows. Branches merged into the trunk appear the same way, spanning from their
-  merge commit. The trunk defaults to `origin/master` (or `origin/main`), can be changed with
+  the refs, chevron and summary, so a three-commit branch takes three rows. Branches merged into
+  the trunk appear the same way, spanning from their merge commit. The trunk defaults to `origin/master` (or `origin/main`), can be changed with
   "Use as Trunk" in a branch's context menu, and never follows HEAD; checking out a branch expands
   its capsule instead. Trunk choice and expansion state are stored per repository.
 * Show in graph rewrites the branch selection; Branches with pull requests turns on every branch

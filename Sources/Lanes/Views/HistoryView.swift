@@ -240,12 +240,12 @@ private struct HistoryRow: View {
     switch item.kind {
     case .workingCopy(_, let lane):
       GraphCell(row: nil, workingCopyLane: lane, continuesFromWorkingCopy: false)
-    case .commit(_, let row, let continues, _):
-      GraphCell(row: row, workingCopyLane: nil, continuesFromWorkingCopy: continues)
+    case .commit(let commit, let row, let continues, _):
+      GraphCell(row: row, workingCopyLane: nil, continuesFromWorkingCopy: continues, nodeStyle: nodeStyle(for: commit))
     case .capsule(let group, let row, let tip):
       GraphCell(
         row: row, workingCopyLane: nil, continuesFromWorkingCopy: false,
-        nodeStyle: tip == nil ? .capsule : .commit, chain: tip == nil && showsCommitChains ? group.commits.count : 0
+        nodeStyle: nodeStyle(for: tip ?? group.tip), chain: tip == nil && showsCommitChains ? group.commits.count : 0
       )
     }
   }
@@ -273,6 +273,10 @@ private struct HistoryRow: View {
     case .capsule(let group, _, let tip):
       CapsuleDescription(group: group, tip: tip, model: model)
     }
+  }
+
+  private func nodeStyle(for commit: Commit?) -> GraphNodeStyle {
+    commit.map(model.isBranchHead) == true ? .branchHead : .commit
   }
 
   private var rowCommit: Commit? {
@@ -426,9 +430,10 @@ struct RefChip: View {
   }
 }
 
+/// Commits that a branch points at are drawn as rounded squares, everything else as circles.
 enum GraphNodeStyle {
   case commit
-  case capsule
+  case branchHead
 }
 
 struct GraphCell: View {
@@ -492,17 +497,21 @@ struct GraphCell: View {
     }
     let center = CGPoint(x: x(row.nodeLane), y: midY)
     let color = Theme.graphColor(row.nodeColorIndex)
-    if nodeStyle == .capsule, chain > 1 {
+    if chain > 1 {
       drawChain(from: center, count: chain, color: color, in: &context, width: size.width)
-      return
+    } else {
+      drawNode(at: center, color: color, in: &context)
     }
-    let dot: Path =
+  }
+
+  private func drawNode(at center: CGPoint, color: Color, in context: inout GraphicsContext) {
+    let node: Path =
       switch nodeStyle {
       case .commit: Path(ellipseIn: CGRect(x: center.x - 4.5, y: center.y - 4.5, width: 9, height: 9))
-      case .capsule: Path(roundedRect: CGRect(x: center.x - 5.5, y: center.y - 5.5, width: 11, height: 11), cornerRadius: 3)
+      case .branchHead: Path(roundedRect: CGRect(x: center.x - 5.5, y: center.y - 5.5, width: 11, height: 11), cornerRadius: 3)
       }
-    context.fill(dot, with: .color(color))
-    context.stroke(dot, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
+    context.fill(node, with: .color(color))
+    context.stroke(node, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
   }
 
   /// The branch's commits side by side: oldest where the line meets the trunk, the tip at the right end;
@@ -530,9 +539,7 @@ struct GraphCell: View {
       context.fill(dot, with: .color(color))
       context.stroke(dot, with: .color(.white.opacity(0.9)), lineWidth: 1)
     }
-    let tip = Path(roundedRect: CGRect(x: end.x - 5.5, y: end.y - 5.5, width: 11, height: 11), cornerRadius: 3)
-    context.fill(tip, with: .color(color))
-    context.stroke(tip, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
+    drawNode(at: end, color: color, in: &context)
   }
 
   private func drawWorkingCopy(lane: Int, in context: inout GraphicsContext, size: CGSize, midY: CGFloat) {
