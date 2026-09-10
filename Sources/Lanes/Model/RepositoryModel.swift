@@ -68,6 +68,8 @@ final class RepositoryModel {
   var branchToRename: Ref?
   var branchToDelete: Ref?
   var branchToForceDelete: Ref?
+  /// Remotes the forced delete should also remove the branch from, carried over from the first attempt.
+  var forceDeleteRemotes: [String] = []
   var commitForNewBranch: Commit?
   var commitToTag: Commit?
   var commitToResetTo: Commit?
@@ -637,10 +639,15 @@ final class RepositoryModel {
     }
   }
 
-  /// Deletes a branch, remote branch or tag. Returns false when git refused a branch because it is
-  /// not fully merged, so the caller can ask before forcing; every other failure is reported like
-  /// any operation.
-  func delete(_ ref: Ref, force: Bool) async -> Bool {
+  /// Remotes that have a branch of the same name as `ref`.
+  func remotesHosting(_ ref: Ref) -> [String] {
+    allRemoteNames.filter { self.ref(named: "\($0)/\(ref.branchName)") != nil }
+  }
+
+  /// Deletes a branch, remote branch or tag; a local branch is also removed from `remotes`. Returns
+  /// false when git refused a branch because it is not fully merged, so the caller can ask before
+  /// forcing; every other failure is reported like any operation.
+  func delete(_ ref: Ref, force: Bool, alsoOn remotes: [String] = []) async -> Bool {
     guard !ref.isHead else { return true }
     isBusy = true
     defer { isBusy = false }
@@ -651,7 +658,11 @@ final class RepositoryModel {
       case .tag: try await git.deleteTag(ref.shortName)
       }
       filter.selected.remove(ref.fullName)
-      await refresh(force: ref.kind == .remoteBranch)
+      for remote in remotes {
+        try await git.deleteRemoteBranch(ref.branchName, on: remote)
+        filter.selected.remove("refs/remotes/\(remote)/\(ref.branchName)")
+      }
+      await refresh(force: ref.kind == .remoteBranch || !remotes.isEmpty)
     } catch let error as GitError where !force && error.isNotFullyMerged {
       return false
     } catch {

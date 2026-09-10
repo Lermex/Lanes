@@ -150,9 +150,10 @@ filters apply, and worktrees just work.
   capsule rows offer Expand / Collapse plus the menus of their branches.
 * Right-click a branch in the sidebar for Switch (a remote branch gets a local tracking branch),
   Push (to the upstream's remote, or a chosen remote when the branch has no upstream yet, which
-  then sets it), Rename, Delete, and Use as Trunk. Deleting asks first; if git refuses because the
-  branch is not fully merged you are asked again before it is forced. Deleting a remote branch
-  removes it on that remote.
+  then sets it), Rename, Delete, and Use as Trunk. Deleting asks first, and when the branch also
+  exists on a remote (or a remote branch also exists locally) offers to delete it locally, on the
+  remote, or both; if git refuses because the branch is not fully merged you are asked again
+  before it is forced.
 * Unchecking a remote in the Remotes submenu hides it whole: its branches leave the sidebar, the
   graph revisions, and the ref chips. This is stored with the branch filter.
 * Trunk view (toolbar toggle, View › Trunk View, ⌥⌘T) draws only the trunk as a lane and collapses
