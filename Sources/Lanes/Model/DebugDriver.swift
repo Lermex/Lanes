@@ -54,6 +54,10 @@ enum DebugDriver {
           let keys = ["GIT_ASKPASS", "SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "SSH_AUTH_SOCK", "GIT_TERMINAL_PROMPT"]
           debugLog("git env: " + keys.map { "\($0)=\(environment[$0].map { $0.hasPrefix("/") ? "<path>" : $0 } ?? "unset")" }.joined(separator: " "))
         case "snapshot": WindowSnapshot.capture()
+        case "screenshot": await WindowSnapshot.captureComposited()
+        case "screen-access":
+          debugLog("screen access: preflight=\(CGPreflightScreenCaptureAccess())")
+          debugLog("screen access: request=\(CGRequestScreenCaptureAccess())")
         case "shrink": shrinkWindow()
         case "fit-min":
           if let window = NSApp.keyWindow ?? NSApp.windows.first(where: \.isVisible) {
