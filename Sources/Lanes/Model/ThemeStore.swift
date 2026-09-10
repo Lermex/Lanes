@@ -10,7 +10,7 @@ import SwiftUI
 @Observable
 final class ThemeStore {
   static let defaultDarkSelection = "LermexIntellij"
-  static let defaultLightSelection = "LermexIntellij Light"
+  static let defaultLightSelection = "Stark Light"
   private static let darkKey = "syntaxTheme.dark"
   private static let lightKey = "syntaxTheme.light"
   private static let legacyKey = "syntaxTheme"

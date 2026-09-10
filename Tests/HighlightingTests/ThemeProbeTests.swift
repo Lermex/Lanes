@@ -13,14 +13,14 @@ import Testing
     #expect(scopes.contains { $0.hasPrefix("function") })
   }
 
-  @Test(arguments: [("lermex-intellij.json", "LermexIntellij", true), ("lermex-intellij-light.json", "LermexIntellij Light", false)])
+  @Test(arguments: [("lermex-intellij.json", "LermexIntellij", true), ("stark-light.json", "Stark Light", false)])
   func bundledThemesResolveCommonScopes(file: String, name: String, isDark: Bool) throws {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
       .appending(path: "Resources/Themes/\(file)")
     let theme = try #require(try ZedThemeFile.load(url).first)
     #expect(theme.name == name)
     #expect(theme.isDark == isDark)
-    #expect(theme.editorBackground != nil && theme.addedBackground != nil && theme.removedBackground != nil)
+    #expect(theme.addedBackground != nil && theme.removedBackground != nil)
     for scope in ["keyword", "keyword.return", "string", "number", "function.method", "type.builtin", "comment.doc", "property"] {
       #expect(theme.style(for: scope)?.color != nil, "no colour for \(scope)")
     }

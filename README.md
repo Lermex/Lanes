@@ -195,7 +195,8 @@ filters apply, and worktrees just work.
 * Rename detection is off for the working copy (a rename shows as delete + add) so that every hunk
   is stageable; commit diffs use rename detection.
 * Syntax colours come from Zed theme files: the app bundles `Resources/Themes/lermex-intellij.json`
-  (dark) and `lermex-intellij-light.json` (light, IntelliJ Light's palette) and also reads
+  (dark) and `stark-light.json` (Stark Light by minhtrungcc from zed-themes.com, with its editor
+  background removed so the diff pane keeps the system panel colour) and also reads
   `~/Library/Application Support/Lanes/Themes/*.json` and `~/.config/zed/themes/*.json`. Settings
   (⌘,) holds one theme for dark mode and one for light mode; whichever matches the app's current
   appearance is used, so a system that switches appearance on a schedule switches the colours with
