@@ -50,7 +50,7 @@ struct Commit {
     switch subject.split(separator: " ").first?.lowercased() {
     case "add", "added", "introduce": "Added"
     case "fix", "fixed", "repair": "Fixed"
-    case "remove", "removed", "drop", "delete": "Removed"
+    case "remove", "removed", "drop": "Removed"
     default: "Changed"
     }
   }
