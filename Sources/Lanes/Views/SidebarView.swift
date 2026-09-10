@@ -115,7 +115,7 @@ private struct BranchRow: View {
       }
     }
     .contentShape(Rectangle())
-    .onTapGesture { revealInHistory() }
+    .onTapGesture { model.reveal(ref) }
     .contextMenu { BranchMenuItems(model: model, ref: ref) }
   }
 
@@ -132,15 +132,6 @@ private struct BranchRow: View {
       get: { model.filter.isShown(ref) },
       set: { model.filter.setShown(ref, $0, allRefs: model.refs) }
     )
-  }
-
-  private func revealInHistory() {
-    if model.isTrunkViewActive, let group = model.trunkLayout?.groups.first(where: { $0.names.contains(ref.shortName) }) {
-      model.selection = .branch(group.id)
-      return
-    }
-    guard model.commits.contains(where: { $0.sha == ref.target }) else { return }
-    model.selection = .commit(ref.target)
   }
 }
 
@@ -162,9 +153,7 @@ private struct TagRow: View {
       }
     }
     .contentShape(Rectangle())
-    .onTapGesture {
-      if model.commits.contains(where: { $0.sha == ref.target }) { model.selection = .commit(ref.target) }
-    }
+    .onTapGesture { model.reveal(ref) }
     .contextMenu { RefMenuItems(model: model, names: [ref.shortName]) }
   }
 }
@@ -182,6 +171,9 @@ private struct StashRow: View {
       }
     }
     .contentShape(Rectangle())
+    .listRowBackground(
+      isSelected ? RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.28)).padding(.horizontal, 4) : nil
+    )
     .onTapGesture {
       model.mode = .history
       model.selection = .stash(stash.commit.sha)
@@ -193,6 +185,8 @@ private struct StashRow: View {
       Button("Drop…", role: .destructive) { model.stashToDrop = stash }
     }
   }
+
+  private var isSelected: Bool { model.selection == .stash(stash.commit.sha) }
 
   private var detail: String {
     let when = stash.commit.committerDate.formatted(.relative(presentation: .numeric, unitsStyle: .narrow))

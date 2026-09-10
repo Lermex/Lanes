@@ -20,6 +20,13 @@ enum DebugDriver {
         case "history-scroll": await scroll(tableWithRowsClosestTo: model.commits.count, label: "history")
         case "wait": try? await Task.sleep(for: .seconds(2))
         case "check-updates": Updates.controller.updater.checkForUpdates()
+        case let step where step.hasPrefix("reveal:"):
+          let name = String(step.dropFirst("reveal:".count))
+          if let ref = model.ref(named: name) { model.reveal(ref) } else { debugLog("reveal: no ref named \(name)") }
+          try? await Task.sleep(for: .seconds(2))
+          debugLog("reveal \(name): selection=\(String(describing: model.selection)) target=\(model.ref(named: name)?.target.prefix(7) ?? "")")
+        case "select-stash":
+          if let stash = model.stashes.first { model.mode = .history; model.selection = .stash(stash.commit.sha) }
         case "git-env":
           let environment = await Git.subprocessEnvironment()
           let keys = ["GIT_ASKPASS", "SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "SSH_AUTH_SOCK", "GIT_TERMINAL_PROMPT"]

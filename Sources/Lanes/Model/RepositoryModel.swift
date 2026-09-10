@@ -65,7 +65,15 @@ final class RepositoryModel {
   private(set) var stashes: [Stash] = []
   var stashToDrop: Stash?
   var errorMessage: String?
-  var mode: ViewMode = .history
+  var mode: ViewMode = .history {
+    didSet {
+      // a stash hides the history pane; coming back to History should show commits again
+      if mode == .history, oldValue == .changes, case .stash = selection {
+        selection = nil
+        reconcileSelection()
+      }
+    }
+  }
 
   // Dialog requests shared by the sidebar and history context menus; RepositoryDialogs presents them.
   var branchToRename: Ref?
@@ -161,6 +169,12 @@ final class RepositoryModel {
 
   var isTrunkViewActive: Bool { trunkView.enabled && trunkLayout != nil }
 
+  /// A stash fills the detail area on its own; the history has nothing to show for it.
+  var isShowingStash: Bool {
+    if case .stash = selection { return true }
+    return false
+  }
+
   func setTrunk(_ ref: Ref) { trunkView.trunk = ref.fullName }
 
   func toggleGroup(_ id: String) {
@@ -196,6 +210,7 @@ final class RepositoryModel {
       let layout = await Task.detached { TrunkLayout.compute(commits: commits, trunkSha: trunkSha, tips: tips, expanded: expanded) }.value
       guard self.commits == commits else { return }
       trunkLayout = layout
+      completePendingReveal()
     }
   }
 
@@ -449,6 +464,41 @@ final class RepositoryModel {
     if case .commit(let sha) = selection, !loaded.contains(where: { $0.sha == sha }) {
       selection = nil
     }
+    completePendingReveal()
+  }
+
+  // MARK: Revealing refs
+
+  @ObservationIgnored private var pendingReveal: String?
+
+  /// Selects what the ref points at in the history: a branch's capsule in trunk view, else its
+  /// commit, loading the ref into the graph and expanding a collapsed capsule first when needed.
+  func reveal(_ ref: Ref) {
+    mode = .history
+    if ref.kind != .tag, isTrunkViewActive, let group = trunkLayout?.groups.first(where: { $0.names.contains(ref.shortName) }) {
+      selection = .branch(group.id)
+      return
+    }
+    pendingReveal = ref.target
+    if commits.contains(where: { $0.sha == ref.target }) {
+      completePendingReveal()
+    } else if filter.showAll {
+      if ref.kind == .tag { filter.includeTags = true }
+    } else {
+      filter.selected.insert(ref.fullName)
+    }
+  }
+
+  private func completePendingReveal() {
+    guard let sha = pendingReveal, commits.contains(where: { $0.sha == sha }) else { return }
+    if isTrunkViewActive, let layout = trunkLayout,
+      let group = layout.groups.first(where: { $0.commits.contains { $0.sha == sha } }), !trunkView.expanded.contains(group.id)
+    {
+      trunkView.expanded.insert(group.id)
+      return
+    }
+    pendingReveal = nil
+    selection = .commit(sha)
   }
 
   func fitGraphColumn() {

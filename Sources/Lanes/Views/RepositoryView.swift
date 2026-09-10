@@ -15,7 +15,7 @@ struct RepositoryView: View {
       // collapses instead of going away.
       SplitPanes(
         .vertical, storageKey: "split.history", firstMinimum: 160, secondMinimum: 200, defaultFraction: 0.6,
-        firstCollapsed: model.mode == .changes
+        firstCollapsed: model.mode == .changes || model.isShowingStash
       ) {
         Flexible([.horizontal, .vertical]) { HistoryView(model: model) }
       } second: {
