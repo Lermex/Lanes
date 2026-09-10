@@ -509,10 +509,11 @@ struct GraphCell: View {
   /// when the column is too narrow the middle is elided.
   private func drawChain(from start: CGPoint, count: Int, color: Color, in context: inout GraphicsContext, width: CGFloat) {
     let step: CGFloat = 9
-    let capacity = max(2, Int((width - start.x - 8) / step) + 1)
+    let tipStep: CGFloat = 13
+    let capacity = max(2, Int((width - start.x - 8 - tipStep) / step) + 2)
     let shown = min(count, capacity)
     let elided = count > capacity
-    let end = CGPoint(x: start.x + CGFloat(shown - 1) * step, y: start.y)
+    let end = CGPoint(x: start.x + CGFloat(shown - 2) * step + tipStep, y: start.y)
     var line = Path()
     line.move(to: start)
     line.addLine(to: end)
