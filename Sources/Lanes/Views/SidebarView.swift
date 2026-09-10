@@ -114,7 +114,7 @@ private struct BranchRow: View {
         Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).imageScale(.small)
       }
     }
-    .contentShape(Rectangle())
+    .sidebarRow()
     .onTapGesture { model.reveal(ref) }
     .contextMenu { BranchMenuItems(model: model, ref: ref) }
   }
@@ -152,7 +152,7 @@ private struct TagRow: View {
           .foregroundStyle(.secondary)
       }
     }
-    .contentShape(Rectangle())
+    .sidebarRow()
     .onTapGesture { model.reveal(ref) }
     .contextMenu { RefMenuItems(model: model, names: [ref.shortName]) }
   }
@@ -170,8 +170,7 @@ private struct StashRow: View {
         Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
       }
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .contentShape(Rectangle())
+    .sidebarRow()
     .listRowBackground(
       isSelected ? RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.28)).padding(.horizontal, 4) : nil
     )
@@ -192,5 +191,16 @@ private struct StashRow: View {
   private var detail: String {
     let when = stash.commit.committerDate.formatted(.relative(presentation: .numeric, unitsStyle: .narrow))
     return stash.branch.map { "on \($0), \(when)" } ?? when
+  }
+}
+
+extension View {
+  /// Makes the whole cell the click target: the list's own insets are replaced by padding inside
+  /// the hit shape, so clicks beside or between the texts count too.
+  func sidebarRow() -> some View {
+    padding(.vertical, 4)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
+      .listRowInsets(EdgeInsets())
   }
 }
